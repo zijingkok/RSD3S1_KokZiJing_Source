@@ -31,7 +31,11 @@ class InventoryDashboard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Overview cards
+
+
+
+          //Database intergration------------------------------------------------------------
+
           _OverviewCard(
             icon: Icons.inventory_2_outlined,
             title: 'Total Stocked Parts',
@@ -57,6 +61,8 @@ class InventoryDashboard extends StatelessWidget {
             hint: 'Awaiting approval',
             border: border,
           ),
+
+          //Database intergration------------------------------------------------------------
 
           const SizedBox(height: 20),
           const Text(

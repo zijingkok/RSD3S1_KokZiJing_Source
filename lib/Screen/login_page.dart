@@ -41,6 +41,7 @@ class LoginPage extends StatelessWidget {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 40),
                 // Title
                 const Center(
@@ -71,7 +72,10 @@ class LoginPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 32),
-                // Login Form Container
+
+
+
+                // Login Form Container-----------------------------------------------------------
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -188,6 +192,8 @@ class LoginPage extends StatelessWidget {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
+
+                            // Login Form Container-----------------------------------------------------------
                           )
                         ),
                       ),

@@ -13,6 +13,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
   final TextEditingController _search = TextEditingController();
   StockFilter _filter = StockFilter.all;
 
+  //Database intergration------------------------------------------------------------
   final _items = <_InvItem>[
     _InvItem(
       name: 'Brake Pads - Front',
@@ -43,6 +44,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
       lowStock: false,
     ),
   ];
+  //Database intergration------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -217,6 +219,8 @@ class _InventoryCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
+
+            //Database intergration------------------------------------------------------------
             // Stock + location
             Row(
               children: [
@@ -231,13 +235,14 @@ class _InventoryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
+            //Database intergration------------------------------------------------------------
 
             // Buttons row
             Row(
               children: [
 
 
-
+                //Database intergration------------------------------------------------------------
                 //Go to part Usage History
                 Expanded(
                   child: OutlinedButton.icon(
@@ -259,7 +264,7 @@ class _InventoryCard extends StatelessWidget {
 
                 const SizedBox(width: 12),
 
-
+                //Database intergration------------------------------------------------------------
                 //Go to Request Page
                 Expanded(
                   child: ElevatedButton.icon(
@@ -277,6 +282,9 @@ class _InventoryCard extends StatelessWidget {
                     ),
                   ),
                 ),
+
+                //Database intergration------------------------------------------------------------
+
               ],
             ),
           ],

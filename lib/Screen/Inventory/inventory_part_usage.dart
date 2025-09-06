@@ -13,7 +13,8 @@ enum UsageFilter { all, thisMonth, last30 }
 class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
   UsageFilter _filter = UsageFilter.all;
 
-  // Demo data
+
+  //Database intergration------------------------------------------------------------
   final _events = <_UsageEvent>[
     _UsageEvent(
       dateTime: DateTime(2025, 1, 14, 9, 30),
@@ -37,11 +38,14 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
       department: 'Warehouse A',
     ),
   ];
+  //Database intergration------------------------------------------------------------
+
 
   @override
   Widget build(BuildContext context) {
     const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
 
+    //Database intergration------------------------------------------------------------
     final now = DateTime.now();
     final last30Start = now.subtract(const Duration(days: 30));
     final monthStart = DateTime(now.year, now.month, 1);
@@ -54,6 +58,8 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
       };
     }).toList()
       ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    //Database intergration------------------------------------------------------------
+
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
@@ -80,6 +86,8 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
           ),
           const SizedBox(height: 8),
 
+
+          //Database intergration------------------------------------------------------------
           // Part name + number
           const Text(
             'Brake Pads - Front',
@@ -91,8 +99,10 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
             style: TextStyle(fontSize: 13, color: Colors.black54),
           ),
           const SizedBox(height: 16),
+          //Database intergration------------------------------------------------------------
 
-          // KPI row
+
+          //Database intergration------------------------------------------------------------
           Row(
             children: const [
               Expanded(
@@ -117,6 +127,8 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
             label: 'CURRENT STOCK',
             value: '24 Units',
           ),
+
+          //Database intergration------------------------------------------------------------
 
           const SizedBox(height: 16),
           const Divider(height: 1),
@@ -303,6 +315,8 @@ class _UsageCard extends StatelessWidget {
     final date = DateFormat("MMM d, yyyy").format(event.dateTime);
     final time = DateFormat("hh.mm a").format(event.dateTime);
 
+
+    //Database intergration------------------------------------------------------------
     // Badge colors
     final isOut = event.deltaUnits < 0;
     final badgeBg = isOut ? const Color(0xFF7C3AED) : const Color(0xFF16A34A);
@@ -366,6 +380,7 @@ class _UsageCard extends StatelessWidget {
       ),
     );
   }
+  //Database intergration------------------------------------------------------------
 
   Widget _kv(String k, String v) {
     return Row(

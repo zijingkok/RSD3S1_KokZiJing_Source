@@ -13,6 +13,7 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
   final _codeCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
 
+  //Database intergration------------------------------------------------------------
   final List<String> _parts = const [
     'Brake Pads - Front',
     'Air Filter',
@@ -20,10 +21,14 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
     'Spark Plug',
   ];
 
+  //Database intergration------------------------------------------------------------
+
   String? _selectedPart = 'Brake Pads - Front';
   int _qty = 1;
   ReqPriority _priority = ReqPriority.medium;
 
+
+  //Database intergration------------------------------------------------------------
   @override
   void dispose() {
     _codeCtrl.dispose();
@@ -58,6 +63,8 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           ),
           const SizedBox(height: 8),
 
+
+          //Database intergration------------------------------------------------------------
           const Text('Select Part',
               style: TextStyle(fontSize: 13, color: Colors.black54)),
           const SizedBox(height: 6),
@@ -80,6 +87,8 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
               ),
             ),
           ),
+
+          //Database intergration------------------------------------------------------------
           const SizedBox(height: 12),
 
           TextField(
