@@ -17,6 +17,12 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _index = 0; // bottom nav
 
+
+
+
+
+  //Here is where u put your screen----------------------
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -39,6 +45,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
+//Here is where u put your screen----------------------
+
+
+
+
+
 
 class _DashboardBody extends StatelessWidget {
   @override
