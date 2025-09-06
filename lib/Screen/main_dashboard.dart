@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../Widget/bottom_NavigationBar.dart';
-import '../Widget/top_bar.dart';
+import '../Widget/app_bar.dart';
 import 'Inventory/inventoryModule.dart';
 import 'Inventory/inventory_dashboard.dart';
 import 'Inventory/inventory_list.dart';
