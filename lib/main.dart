@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 import 'Screen/login_page.dart';
 import 'Screen/main_dashboard.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
-  runApp(const MyApp()); // 🔥 Entry point
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://vkfdwthcqjbqilooadrq.supabase.co',   // <-- replace
+    anonKey: 'sb_secret_OnYJCo8ezEIB3vRcWnFj4g_B6iE4LD2',                      // <-- replace
+  );
+
+  runApp(const MyApp());
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
