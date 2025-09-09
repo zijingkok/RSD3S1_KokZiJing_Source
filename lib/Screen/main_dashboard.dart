@@ -6,6 +6,7 @@ import 'CRM/crm_dashboard.dart';
 import 'Inventory/inventoryModule.dart';
 import 'Inventory/inventory_dashboard.dart';
 import 'Inventory/inventory_list.dart';
+import 'Vehicle/v_dashboard.dart';
 
 
 class DashboardScreen extends StatefulWidget {
@@ -26,7 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         index: _index, // 0=Dashboard, 1=Vehicle, 2=Job, 3=CRM, 4=Inventory
         children: [
           _DashboardBody(),
-          const Center(child: Text('Vehicle')),
+          const VehicleDashboard(),
           const Center(child: Text('Job')),
           const CrmDashboard(),
           const InventoryModule(), // go to inventory module

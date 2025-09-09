@@ -22,7 +22,7 @@ class _CrmDashboardState extends State<CrmDashboard> {
       email: 'chengxuy@gmail.com',
       gender: 'Male',
       dob: '22/07/2003',
-      avatarAsset: 'assets/cheng_siu.jpg', // optional; use null if not available
+      avatarAsset: 'asset/cheng_siu.jpg', // optional; use null if not available
       vehicles: [
         Vehicle(plate: 'ABC 1234', model: 'Toyota Vellfire V6'),
         Vehicle(plate: 'JKH 8618', model: 'Perodua Myvi'),
