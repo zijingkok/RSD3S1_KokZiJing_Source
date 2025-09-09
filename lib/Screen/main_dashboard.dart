@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../Widget/bottom_NavigationBar.dart';
 import '../Widget/app_bar.dart';
+import 'CRM/crm_dashboard.dart';
 import 'Inventory/inventoryModule.dart';
 import 'Inventory/inventory_dashboard.dart';
 import 'Inventory/inventory_list.dart';
@@ -27,8 +28,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _DashboardBody(),
           const Center(child: Text('Vehicle')),
           const Center(child: Text('Job')),
-          const Center(child: Text('CRM')),
-
+          const CrmDashboard(),
           const InventoryModule(), // go to inventory module
         ],
       ),

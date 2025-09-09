@@ -25,6 +25,21 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+
+
+
+  //Remove this after done UI---------------------------
+
+  Future<void> _signIn() async {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => DashboardScreen()),
+    );
+  }
+
+
+/*
+* -------------------------------------turn back this after done ui
+
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -40,12 +55,6 @@ class _LoginPageState extends State<LoginPage> {
       final user = res.user;
       if (user == null) throw Exception('Login failed.');
 
-      // Optional: enforce email verification
-      // if (user.emailConfirmedAt == null) {
-      //   await supa.auth.signOut();
-      //   throw Exception('Please verify your email.');
-      // }
-
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => DashboardScreen()),
@@ -58,7 +67,7 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
+  */
 
 
   void _showError(String msg) {
