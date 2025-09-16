@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:workshop_management/Screen/Job/job_module.dart';
 
 import '../Widget/bottom_NavigationBar.dart';
 import '../Widget/app_bar.dart';
@@ -28,7 +29,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           _DashboardBody(),
           const VehicleDashboard(),
-          const Center(child: Text('Job')),
+          const JobModule(),
           const CrmDashboard(),
           const InventoryModule(), // go to inventory module
         ],
