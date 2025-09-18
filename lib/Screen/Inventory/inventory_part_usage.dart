@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../Models/parts.dart';
+import '../../services/part_usage_service.dart';
+
 class PartUsageHistoryScreen extends StatefulWidget {
   const PartUsageHistoryScreen({super.key});
 
@@ -12,40 +15,46 @@ enum UsageFilter { all, thisMonth, last30 }
 
 class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
   UsageFilter _filter = UsageFilter.all;
+  final _usageService = PartUsageService();
 
+  List<PartUsageEvent> _events = [];
+  bool _loading = true;
+  int totalIn = 0;
+  int totalOut = 0;
+  int currentStock = 0;
 
-  //Database intergration------------------------------------------------------------
-  final _events = <_UsageEvent>[
-    _UsageEvent(
-      dateTime: DateTime(2025, 1, 14, 9, 30),
-      deltaUnits: -4,
-      workOrder: 'WO-2025-0156',
-      mechanic: 'Cheng Yu Yeong',
-      department: 'Service Bay 2',
-    ),
-    _UsageEvent(
-      dateTime: DateTime(2025, 1, 10, 15, 10),
-      deltaUnits: -2,
-      workOrder: 'WO-2025-0110',
-      mechanic: 'Lim Kai Wei',
-      department: 'Service Bay 1',
-    ),
-    _UsageEvent(
-      dateTime: DateTime(2024, 12, 28, 11, 5),
-      deltaUnits: 12,
-      workOrder: 'PO-2024-7731',
-      mechanic: 'Receiving',
-      department: 'Warehouse A',
-    ),
-  ];
-  //Database intergration------------------------------------------------------------
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final part = ModalRoute.of(context)!.settings.arguments as Part;
+    _loadUsage(part.id, part.stockQuantity);
+  }
 
+  Future<void> _loadUsage(String partId, int stock) async {
+    setState(() => _loading = true);
+    try {
+      final events = await _usageService.fetchUsageHistory(partId);
+      final summary = await _usageService.fetchUsageSummary(partId);
+
+      setState(() {
+        _events = events;
+        totalIn = summary['in'] ?? 0;
+        totalOut = summary['out'] ?? 0;
+        currentStock = stock;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint("Error loading usage history: $e");
+      setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    //Database intergration------------------------------------------------------------
     final now = DateTime.now();
     final last30Start = now.subtract(const Duration(days: 30));
     final monthStart = DateTime(now.year, now.month, 1);
@@ -56,19 +65,14 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
         UsageFilter.thisMonth => e.dateTime.isAfter(monthStart),
         UsageFilter.last30 => e.dateTime.isAfter(last30Start),
       };
-    }).toList()
-      ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
-    //Database intergration------------------------------------------------------------
-
+    }).toList();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        16, 16, 16, 16 + kBottomNavigationBarHeight,
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16 + kBottomNavigationBarHeight),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Inline back + title (since you keep your own top AppBar with logo)
+          // Back + title
           Row(
             children: [
               IconButton(
@@ -76,8 +80,6 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
                 onPressed: () => Navigator.maybePop(context),
               ),
               const SizedBox(width: 4),
-
-
               const Text(
                 'Part Usage History',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
@@ -86,68 +88,42 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
           ),
           const SizedBox(height: 8),
 
-
-          //Database intergration------------------------------------------------------------
           // Part name + number
-          const Text(
-            'Brake Pads - Front',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          Text(
+            ModalRoute.of(context)!.settings.arguments is Part
+                ? (ModalRoute.of(context)!.settings.arguments as Part).name
+                : '',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Part #: BP-12345-001',
-            style: TextStyle(fontSize: 13, color: Colors.black54),
+          Text(
+            ModalRoute.of(context)!.settings.arguments is Part
+                ? "Part #: ${(ModalRoute.of(context)!.settings.arguments as Part).number}"
+                : '',
+            style: const TextStyle(fontSize: 13, color: Colors.black54),
           ),
           const SizedBox(height: 16),
-          //Database intergration------------------------------------------------------------
 
-
-          //Database intergration------------------------------------------------------------
+          // KPIs
           Row(
-            children: const [
+            children: [
               Expanded(
-                child: _KpiCard(
-                  label: 'TOTAL IN',
-                  value: '156',
-                ),
+                child: _KpiCard(label: 'TOTAL IN', value: '$totalIn'),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
-                child: _KpiCard(
-                  label: 'TOTAL OUT',
-                  value: '142',
-                ),
+                child: _KpiCard(label: 'TOTAL OUT', value: '$totalOut'),
               ),
             ],
           ),
           const SizedBox(height: 12),
-
-          // Current stock (wide card)
-          const _KpiWideCard(
-            label: 'CURRENT STOCK',
-            value: '24 Units',
-          ),
-
-          //Database intergration------------------------------------------------------------
+          _KpiWideCard(label: 'CURRENT STOCK', value: '$currentStock Units'),
 
           const SizedBox(height: 16),
           const Divider(height: 1),
-
           const SizedBox(height: 12),
 
           // Filters
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _FilterPill(
-                label: 'All',
-                selected: true,
-                // the selected flag will be overridden in build below
-              ),
-            ],
-          ),
-
           Wrap(
             spacing: 10,
             children: [
@@ -168,24 +144,13 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 12),
 
-          // History items
+          // Events
           for (final e in filtered) ...[
-            _UsageCard(event: e, border: border),
+            _UsageCard(event: e),
             const SizedBox(height: 12),
           ],
-
-          Center(
-            child: TextButton(
-              onPressed: () {},
-              child: const Text(
-                'Load more history',
-                style: TextStyle(color: Colors.black54),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -305,18 +270,17 @@ class _FilterPill extends StatelessWidget {
   }
 }
 
+// Change _UsageCard signature
 class _UsageCard extends StatelessWidget {
-  final _UsageEvent event;
-  final BorderSide border;
-  const _UsageCard({required this.event, required this.border});
+  final PartUsageEvent event;   // ✅ use real model now
+  const _UsageCard({required this.event});
 
   @override
   Widget build(BuildContext context) {
+    final border = const BorderSide(width: 1, color: Color(0xFFB5B5B5));
     final date = DateFormat("MMM d, yyyy").format(event.dateTime);
     final time = DateFormat("hh.mm a").format(event.dateTime);
 
-
-    //Database intergration------------------------------------------------------------
     // Badge colors
     final isOut = event.deltaUnits < 0;
     final badgeBg = isOut ? const Color(0xFF7C3AED) : const Color(0xFF16A34A);
@@ -362,14 +326,15 @@ class _UsageCard extends StatelessWidget {
                   ),
                   child: Text(
                     badgeText,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // Details grid-ish (stacked rows)
+            // Details
             _kv('Work Order', event.workOrder),
             const SizedBox(height: 6),
             _kv('Mechanic', event.mechanic),
@@ -380,7 +345,6 @@ class _UsageCard extends StatelessWidget {
       ),
     );
   }
-  //Database intergration------------------------------------------------------------
 
   Widget _kv(String k, String v) {
     return Row(
@@ -400,18 +364,5 @@ class _UsageCard extends StatelessWidget {
   }
 }
 
-class _UsageEvent {
-  final DateTime dateTime;
-  final int deltaUnits; // negative = consumed, positive = received
-  final String workOrder;
-  final String mechanic;
-  final String department;
 
-  const _UsageEvent({
-    required this.dateTime,
-    required this.deltaUnits,
-    required this.workOrder,
-    required this.mechanic,
-    required this.department,
-  });
-}
+

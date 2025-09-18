@@ -1,116 +1,113 @@
 import 'package:flutter/material.dart';
 
+import '../../Models/inventory_summary.dart' ;
+import '../../services/inventory_service.dart' ;
+
 class InventoryDashboard extends StatelessWidget {
   const InventoryDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
     const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
+    final service = InventoryService();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        16, 16, 16, 16 + kBottomNavigationBarHeight,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 4),
-          const Text(
-            'Inventory Dashboard',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+    return FutureBuilder<InventorySummary>(
+      future: service.fetchInventorySummary(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+        final data = snapshot.data!;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + kBottomNavigationBarHeight,
           ),
-          const SizedBox(height: 6),
-          const Text(
-            'Welcome back, Manager',
-            style: TextStyle(fontSize: 14, color: Colors.black54),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 4),
+              const Text(
+                'Inventory Dashboard',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Welcome back, Manager',
+                style: TextStyle(fontSize: 14, color: Colors.black54),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Inventory Overview',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+
+              _OverviewCard(
+                icon: Icons.inventory_2_outlined,
+                title: 'Total Stocked Parts',
+                value: data.totalStockedParts.toString(),
+                hint: '+12% from last month',
+                border: border,
+              ),
+              const SizedBox(height: 12),
+
+              _OverviewCard(
+                icon: Icons.warning_amber_outlined,
+                title: 'Low Stock Alerts',
+                value: data.lowStockAlerts.toString(),
+                hint: 'Require immediate attention',
+                border: border,
+              ),
+              const SizedBox(height: 12),
+
+              _OverviewCard(
+                icon: Icons.schedule_outlined,
+                title: 'Pending Procurement',
+                value: data.pendingProcurement.toString(),
+                hint: 'Awaiting approval',
+                border: border,
+              ),
+
+              const SizedBox(height: 20),
+              const Text(
+                'Quick Actions',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              _ActionCard(
+                leading: Icons.view_list_outlined,
+                title: 'View Inventory List',
+                subtitle: 'Browse all parts and stock levels',
+                border: border,
+                onTap: () => Navigator.of(context).pushNamed('/list'),
+              ),
+              const SizedBox(height: 12),
+              _ActionCard(
+                leading: Icons.playlist_add_outlined,
+                title: 'Request Stock',
+                subtitle: 'Add on spare parts',
+                border: border,
+                onTap: () => Navigator.of(context).pushNamed('/request'),
+              ),
+              const SizedBox(height: 12),
+              _ActionCard(
+                leading: Icons.schedule_outlined,
+                title: 'Pending Procurement',
+                subtitle: 'Check request Status',
+                border: border,
+                onTap: () => Navigator.of(context).pushNamed('/status'),
+              ),
+            ],
           ),
-          const SizedBox(height: 18),
-          const Text(
-            'Inventory Overview',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-
-
-
-
-          //Database intergration------------------------------------------------------------
-
-          _OverviewCard(
-            icon: Icons.inventory_2_outlined,
-            title: 'Total Stocked Parts',
-            value: '2000',
-            hint: '+12% from last month',
-            border: border,
-          ),
-          const SizedBox(height: 12),
-          _OverviewCard(
-            icon: Icons.warning_amber_outlined,
-            title: 'Low Stock Alerts',
-            value: '23',
-            hint: 'Require immediate attention',
-            border: border,
-          ),
-          const SizedBox(height: 12),
-
-
-          _OverviewCard(
-            icon: Icons.schedule_outlined,
-            title: 'Pending Procurement',
-            value: '8',
-            hint: 'Awaiting approval',
-            border: border,
-          ),
-
-          //Database intergration------------------------------------------------------------
-
-          const SizedBox(height: 20),
-          const Text(
-            'Quick Actions',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-
-
-
-
-
-
-
-          _ActionCard(
-            leading: Icons.view_list_outlined,
-            title: 'View Inventory List',
-            subtitle: 'Browse all parts and stock levels',
-            border: border,
-            onTap: () => Navigator.of(context).pushNamed('/list'),
-          ),
-          const SizedBox(height: 12),
-          _ActionCard(
-            leading: Icons.playlist_add_outlined,
-            title: 'Request Stock',
-            subtitle: 'Add on spare parts',
-            border: border,
-            onTap: () => Navigator.of(context).pushNamed('/request'),
-          ),
-          const SizedBox(height: 12),
-          _ActionCard(
-              leading: Icons.schedule_outlined,
-              title: 'Pending Procurement',
-              subtitle: 'Check request Status',
-              border: border,
-              onTap: () => Navigator.of(context).pushNamed('/status'),
-          ),
-
-
-
-
-
-
-
-
-
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -159,17 +156,26 @@ class _OverviewCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  Text(value,
-                      style: const TextStyle(
-                          fontSize: 32, fontWeight: FontWeight.w600)),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(hint,
-                      style: const TextStyle(
-                          fontSize: 13, color: Colors.black54)),
+                  Text(
+                    hint,
+                    style: const TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
                 ],
               ),
             ),
@@ -226,13 +232,21 @@ class _ActionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 6),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            fontSize: 13, color: Colors.black54)),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
                   ],
                 ),
               ),

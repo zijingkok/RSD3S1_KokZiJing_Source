@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/procurement_service.dart';
 
 class InventoryRequestScreen extends StatefulWidget {
   const InventoryRequestScreen({super.key});
@@ -10,25 +11,56 @@ class InventoryRequestScreen extends StatefulWidget {
 enum ReqPriority { low, medium, high }
 
 class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
-  final _codeCtrl = TextEditingController();
+  final _codeCtrl = TextEditingController();  // UI-only, not stored (no column)
   final _notesCtrl = TextEditingController();
 
-  //Database intergration------------------------------------------------------------
-  final List<String> _parts = const [
-    'Brake Pads - Front',
-    'Air Filter',
-    'Engine Oil 5W-30 (4L)',
-    'Spark Plug',
-  ];
+  final _service = ProcurementService();
 
-  //Database intergration------------------------------------------------------------
-
-  String? _selectedPart = 'Brake Pads - Front';
+  List<Map<String, dynamic>> _parts = [];
+  String? _selectedPartId;
   int _qty = 1;
   ReqPriority _priority = ReqPriority.medium;
+  bool _loading = true;
+  bool _submitting = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadParts();
+  }
 
-  //Database intergration------------------------------------------------------------
+  Future<void> _loadParts() async {
+    try {
+      final parts = await _service.fetchParts();
+      setState(() {
+        _parts = parts;
+        if (parts.isNotEmpty) _selectedPartId = parts.first['part_id'] as String;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint("Error loading parts: $e");
+      setState(() => _loading = false);
+    }
+  }
+
+  String get _selectedPartName {
+    for (final p in _parts) {
+      if (p['part_id'] == _selectedPartId) return p['part_name'] as String;
+    }
+    return 'Not selected';
+  }
+
+  String _priorityLabel(ReqPriority p) {
+    switch (p) {
+      case ReqPriority.low:
+        return 'Low';
+      case ReqPriority.medium:
+        return 'Normal'; // map Medium -> Normal to match your DB defaults
+      case ReqPriority.high:
+        return 'Urgent';
+    }
+  }
+
   @override
   void dispose() {
     _codeCtrl.dispose();
@@ -40,14 +72,16 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
   Widget build(BuildContext context) {
     const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
 
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        16, 16, 16, 16 + kBottomNavigationBarHeight,
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16 + kBottomNavigationBarHeight),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Inline back + title (since your shell has its own AppBar with logo)
+          // Back + title
           Row(
             children: [
               IconButton(
@@ -63,20 +97,20 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           ),
           const SizedBox(height: 8),
 
-
-          //Database intergration------------------------------------------------------------
-          const Text('Select Part',
-              style: TextStyle(fontSize: 13, color: Colors.black54)),
+          // Select Part
+          const Text('Select Part', style: TextStyle(fontSize: 13, color: Colors.black54)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            value: _selectedPart,
+            value: _selectedPartId,
             items: _parts
-                .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                .map((p) => DropdownMenuItem(
+              value: p['part_id'] as String,
+              child: Text(p['part_name'] as String),
+            ))
                 .toList(),
-            onChanged: (v) => setState(() => _selectedPart = v),
+            onChanged: (v) => setState(() => _selectedPartId = v),
             decoration: InputDecoration(
-              contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: border,
@@ -87,16 +121,14 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
               ),
             ),
           ),
-
-          //Database intergration------------------------------------------------------------
           const SizedBox(height: 12),
 
+          // Optional reference code (UI only; not stored unless you add a column)
           TextField(
             controller: _codeCtrl,
             decoration: InputDecoration(
-              hintText: 'Enter Code',
-              contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              hintText: 'Enter Reference Code (optional)',
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: border,
@@ -109,8 +141,8 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           ),
           const SizedBox(height: 16),
 
-          const Text('Quantity Needed',
-              style: TextStyle(fontSize: 13, color: Colors.black54)),
+          // Quantity
+          const Text('Quantity Needed', style: TextStyle(fontSize: 13, color: Colors.black54)),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -130,11 +162,8 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
                     border: Border.all(color: border.color, width: 1),
                     color: Colors.white,
                   ),
-                  child: Text(
-                    '$_qty',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
+                  child: Text('$_qty',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -146,8 +175,8 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           ),
           const SizedBox(height: 16),
 
-          const Text('Priority Level',
-              style: TextStyle(fontSize: 13, color: Colors.black54)),
+          // Priority
+          const Text('Priority Level', style: TextStyle(fontSize: 13, color: Colors.black54)),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -178,18 +207,17 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           ),
           const SizedBox(height: 16),
 
-          const Text('Notes/Justification',
-              style: TextStyle(fontSize: 13, color: Colors.black54)),
+          // Notes
+          const Text('Notes/Justification', style: TextStyle(fontSize: 13, color: Colors.black54)),
           const SizedBox(height: 6),
           TextField(
             controller: _notesCtrl,
             minLines: 3,
             maxLines: 6,
             decoration: InputDecoration(
-              hintText: 'Provide details about why this part is needed....',
+              hintText: 'Provide details about why this part is needed...',
               alignLabelWithHint: true,
-              contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: border,
@@ -216,10 +244,9 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Request Summary',
-                      style:
-                      TextStyle(fontSize: 13, color: Colors.black54)),
+                      style: TextStyle(fontSize: 13, color: Colors.black54)),
                   const SizedBox(height: 6),
-                  _kv('Part:', _selectedPart ?? 'Not selected'),
+                  _kv('Part:', _selectedPartName),
                   const SizedBox(height: 6),
                   _kv('Quantity:', '$_qty'),
                   const SizedBox(height: 6),
@@ -228,18 +255,38 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 20),
 
-          // Submit / Cancel
+          // Submit
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
-                // TODO: handle submit
-                // ScaffoldMessenger.of(context).showSnackBar(
-                //   const SnackBar(content: Text('Request submitted')),
-                // );
+              onPressed: (_selectedPartId == null || _submitting)
+                  ? null
+                  : () async {
+                setState(() => _submitting = true);
+                try {
+                  await _service.createRequest(
+                    partId: _selectedPartId!,
+                    quantity: _qty,
+                    priority: _priorityLabel(_priority),
+                    notes: _notesCtrl.text, // not stored unless you add column
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Request submitted')),
+                    );
+                    Navigator.maybePop(context);
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
+                } finally {
+                  if (mounted) setState(() => _submitting = false);
+                }
               },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -250,12 +297,15 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
                 ),
                 elevation: 0,
               ),
-              child: const Text('Submit Request',
-                  style:
-                  TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+              child: Text(
+                _submitting ? 'Submitting...' : 'Submit Request',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              ),
             ),
           ),
           const SizedBox(height: 10),
+
+          // Cancel
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
@@ -269,24 +319,12 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
                 foregroundColor: Colors.black87,
               ),
               child: const Text('Cancel',
-                  style:
-                  TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             ),
           ),
         ],
       ),
     );
-  }
-
-  static String _priorityLabel(ReqPriority p) {
-    switch (p) {
-      case ReqPriority.low:
-        return 'Low';
-      case ReqPriority.medium:
-        return 'Medium';
-      case ReqPriority.high:
-        return 'High';
-    }
   }
 
   Widget _kv(String k, String v) {
@@ -364,7 +402,7 @@ class _PriorityPill extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
               ),
