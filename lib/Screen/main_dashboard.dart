@@ -31,7 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const VehicleDashboard(),
           const JobModule(),
           const CrmDashboard(),
-          const InventoryModule(), // go to inventory module
+          const InventoryModule(),
         ],
       ),
       bottomNavigationBar: AppBottomNav(
@@ -41,11 +41,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
-
-
-
-
-
 
 
 class _DashboardBody extends StatelessWidget {
@@ -60,7 +55,8 @@ class _DashboardBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Stats Row
+
+          // Stats Row---------------------------
           Row(
             children: const [
               Expanded(
@@ -78,6 +74,7 @@ class _DashboardBody extends StatelessWidget {
               ),
             ],
           ),
+          // Stats Row---------------------------
           const SizedBox(height: 16),
 
           // Feature Cards
@@ -87,6 +84,7 @@ class _DashboardBody extends StatelessWidget {
             subtitle: 'Track Vehicle & Service History',
             border: themeBorder,
           ),
+
           const SizedBox(height: 12),
           _FeatureCard(
             icon: Icons.event_note_outlined,
@@ -108,6 +106,7 @@ class _DashboardBody extends StatelessWidget {
             subtitle: 'Parts and Supply Tracking',
             border: themeBorder,
           ),
+
 
           const SizedBox(height: 20),
           const Text(
