@@ -266,10 +266,15 @@ class _InventoryCard extends StatelessWidget {
 
 
 
+                    // In your parts list screen
                     onPressed: () {
                       Navigator.of(context).pushNamed(
                         '/request',
-                        arguments: item, // pass part to request page
+                        arguments: {
+                          'source': 'parts',
+                          'part': item,               // Part
+                          'location': item.location,  // optional
+                        },
                       );
                     },
 

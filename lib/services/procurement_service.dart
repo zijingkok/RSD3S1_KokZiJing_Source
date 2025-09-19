@@ -23,15 +23,18 @@ class ProcurementService {
     });
   }
 
-  /// Fetch parts for dropdowns
+
+  //fecth part with location
   Future<List<Map<String, dynamic>>> fetchParts() async {
     final res = await _client
         .from('parts')
-        .select('part_id, part_name')
-        .order('part_name');
+        .select('part_id, part_name, part_number, stock_quantity, location, reorder_level')
+        .order('part_name', ascending: true)
+        .order('location',  ascending: true);   // ← no semicolon before this
 
     return List<Map<String, dynamic>>.from(res as List);
   }
+
 
   /// Optional: map {part_id: part_name} (used for realtime stream join workaround)
   Future<Map<String, String>> _partsNameMap() async {
@@ -97,5 +100,34 @@ class ProcurementService {
         .from('procurement_requests')
         .update({'status': status})
         .eq('request_id', requestId);
+  }
+
+
+  /// Update status (e.g., Pending → Approved → Ordered → Arrived)
+  Future<void> updateQuantity({
+    required String requestId,
+    required String status,
+  }) async {
+    // Update the request row
+    final res = await _client
+        .from('procurement_requests')
+        .update({'status': status})
+        .eq('request_id', requestId)
+        .select('part_id, quantity')
+        .maybeSingle();
+
+    if (res == null) return;
+
+    // If arrived, increment stock in parts table
+    if (status.toLowerCase() == 'arrived') {
+      final partId = res['part_id'] as String;
+      final qty = res['quantity'] as int;
+
+      // Increment part stock atomically
+      await _client.rpc(
+        'increment_part_stock',
+        params: {'p_part_id': partId, 'p_qty': qty},
+      );
+    }
   }
 }

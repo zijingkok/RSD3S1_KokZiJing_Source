@@ -10,7 +10,7 @@ class ProcurementRequestsScreen extends StatefulWidget {
   State<ProcurementRequestsScreen> createState() => _ProcurementRequestsScreenState();
 }
 
-enum ReqStatus { all, pending, approved, ordered }
+enum ReqStatus { all, pending, approved,arrived}
 
 class _ProcurementRequestsScreenState extends State<ProcurementRequestsScreen> {
   ReqStatus _filter = ReqStatus.all;
@@ -63,9 +63,9 @@ class _ProcurementRequestsScreenState extends State<ProcurementRequestsScreen> {
                     onTap: () => setState(() => _filter = ReqStatus.approved),
                   ),
                   _FilterPill(
-                    label: 'Ordered',
-                    selected: _filter == ReqStatus.ordered,
-                    onTap: () => setState(() => _filter = ReqStatus.ordered),
+                    label: 'Arrived',
+                    selected: _filter == ReqStatus.arrived,
+                    onTap: () => setState(() => _filter = ReqStatus.arrived),
                   ),
                 ],
               ),
@@ -94,8 +94,8 @@ class _ProcurementRequestsScreenState extends State<ProcurementRequestsScreen> {
                           return r.status.toLowerCase() == 'pending';
                         case ReqStatus.approved:
                           return r.status.toLowerCase() == 'approved';
-                        case ReqStatus.ordered:
-                          return r.status.toLowerCase() == 'ordered';
+                        case ReqStatus.arrived:
+                          return r.status.toLowerCase() == 'arrived';
                       }
                     }).toList()
                       ..sort((a, b) => b.requestDate.compareTo(a.requestDate));

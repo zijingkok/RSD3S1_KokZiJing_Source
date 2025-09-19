@@ -72,7 +72,7 @@ class _InventoryDashboardState extends State<InventoryDashboard> {
                 icon: Icons.inventory_2_outlined,
                 title: 'Total Stocked Parts',
                 value: data.totalStockedParts.toString(),
-                hint: '+12% from last month',
+                hint: 'Total Parts across warehouses',
                 border: border,
               ),
               const SizedBox(height: 12),

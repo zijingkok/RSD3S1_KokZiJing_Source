@@ -109,17 +109,15 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
           Row(
             children: [
               Expanded(
-                child: _KpiCard(label: 'TOTAL IN', value: '$totalIn'),
+                child: _KpiWideCard(label: 'CURRENT STOCK', value: '$currentStock Units'),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _KpiCard(label: 'TOTAL OUT', value: '$totalOut'),
+                child: _KpiCard(label: 'TOTAL OUT', value: '$totalIn'),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          _KpiWideCard(label: 'CURRENT STOCK', value: '$currentStock Units'),
-
           const SizedBox(height: 16),
           const Divider(height: 1),
           const SizedBox(height: 12),
@@ -285,7 +283,7 @@ class _UsageCard extends StatelessWidget {
     // Badge colors
     final isOut = event.deltaUnits < 0;
     final badgeBg = isOut ? const Color(0xFF7C3AED) : const Color(0xFF16A34A);
-    final badgeText = '${isOut ? '' : '+'}${event.deltaUnits} Units';
+    final badgeText = '${isOut ? '' : '-'}${event.deltaUnits} Units';
 
     return Card(
       elevation: 0,
