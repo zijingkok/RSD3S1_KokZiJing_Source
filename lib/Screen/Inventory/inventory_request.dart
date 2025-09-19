@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import '../../Models/parts.dart';
 import '../../services/procurement_service.dart';
 
-
-import 'dart:convert';
-import 'package:mobile_scanner/mobile_scanner.dart';
-
 class InventoryRequestScreen extends StatefulWidget {
   const InventoryRequestScreen({super.key});
 
@@ -16,81 +12,6 @@ class InventoryRequestScreen extends StatefulWidget {
 enum ReqPriority { low, medium, high }
 
 class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
-
-
-  //barcode function --------------------------------------------------------------------------
-  void _applyScanResult(String raw) {
-    // 1) Try JSON payload: {"part_id":"...", "location":"...", "part_number":"..."}
-    String? scanPartId, scanPartNumber, scanLocation;
-
-    try {
-      final data = jsonDecode(raw);
-      if (data is Map) {
-        scanPartId = (data['part_id'] ?? '') is String ? (data['part_id'] as String) : null;
-        scanPartNumber = (data['part_number'] ?? '') is String ? (data['part_number'] as String) : null;
-        scanLocation = (data['location'] ?? '') is String ? (data['location'] as String) : null;
-      }
-    } catch (_) {
-      // not JSON -> treat as plain code
-    }
-
-    // 2) Fallback: plain string could be part_number OR part_id
-    final code = (scanPartId ?? scanPartNumber) ?? raw.trim();
-
-    // candidates filtered by provided location (if any)
-    Iterable<Map<String, dynamic>> candidates = _parts.where((p) {
-      final pid  = (p['part_id'] ?? '').toString();
-      final pnum = (p['part_number'] ?? '').toString();
-      final loc  = (p['location'] ?? '').toString();
-
-      final idMatch   = pid == code;
-      final numMatch  = pnum == code;
-      final looseMatch = pnum == code || pid == code; // keep it strict; expand if needed
-
-      final locMatch = (scanLocation == null || scanLocation.isEmpty) ? true : (loc == scanLocation);
-      return (idMatch || numMatch || looseMatch) && locMatch;
-    });
-
-    // If we didn’t get any with location filter, try again ignoring location
-    if (candidates.isEmpty) {
-      candidates = _parts.where((p) {
-        final pid  = (p['part_id'] ?? '').toString();
-        final pnum = (p['part_number'] ?? '').toString();
-        return pid == code || pnum == code;
-      });
-    }
-
-    if (candidates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No matching part found for "$code".')),
-      );
-      return;
-    }
-
-    // Pick the first match; (optional) you can present a chooser if >1
-    final chosen = candidates.first;
-    final chosenPartId = (chosen['part_id'] ?? '').toString();
-    final chosenLoc    = (chosen['location'] ?? '').toString();
-
-    setState(() {
-      // set location first so the part dropdown filters correctly
-      if (chosenLoc.isNotEmpty && _locations.contains(chosenLoc)) {
-        _selectedLocation = chosenLoc;
-      }
-      _selectedPartId = chosenPartId;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Selected: ${chosen['part_name']} (${chosen['part_number']})')),
-    );
-  }
-
-
-  //barcode function --------------------------------------------------------------------------
-
-
-
-
   final _codeCtrl = TextEditingController();   // UI-only (not stored unless you add a column)
   final _notesCtrl = TextEditingController();
 
@@ -344,39 +265,22 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           ),
           const SizedBox(height: 12),
 
-
-
-
-
           // Optional reference code (UI only)
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Scan barcode to select part'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                side: const BorderSide(color: Color(0xFFB5B5B5)),
-                foregroundColor: Colors.black87,
-                backgroundColor: Colors.white,
+          TextField(
+            controller: _codeCtrl,
+            decoration: InputDecoration(
+              hintText: 'Enter Reference Code (optional)',
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: border,
               ),
-              onPressed: () async {
-                final raw = await Navigator.push<String?>(
-                  context,
-                  MaterialPageRoute(builder: (_) => const _BarcodeScannerPage()),
-                );
-                if (!mounted || raw == null || raw.isEmpty) return;
-                _applyScanResult(raw);
-              },
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: border,
+              ),
             ),
           ),
-
-
-
-
-
-
           const SizedBox(height: 16),
 
           // Quantity
@@ -651,69 +555,3 @@ class _PriorityPill extends StatelessWidget {
     );
   }
 }
-class _BarcodeScannerPage extends StatefulWidget {
-  const _BarcodeScannerPage({super.key});
-
-  @override
-  State<_BarcodeScannerPage> createState() => _BarcodeScannerPageState();
-}
-
-class _BarcodeScannerPageState extends State<_BarcodeScannerPage> {
-  bool _handled = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          MobileScanner(
-            // formats: leave default to support most types
-            onDetect: (capture) {
-              if (_handled) return;
-              final barcodes = capture.barcodes;
-              if (barcodes.isEmpty) return;
-              final first = barcodes.first;
-
-              final raw = first.rawValue ?? '';
-              if (raw.isEmpty) return;
-
-              _handled = true;
-              Navigator.of(context).pop(raw);
-            },
-          ),
-          // overlay
-          Align(
-            alignment: Alignment.topLeft,
-            child: SafeArea(
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Align the barcode within the frame',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-

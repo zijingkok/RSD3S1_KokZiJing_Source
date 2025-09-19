@@ -5,7 +5,7 @@ class Part {
   final int stockQuantity;
   final String location;
   final int reorderLevel;
-  final String? barcodeValue;   // NEW
+
 
   Part({
     required this.id,
@@ -14,7 +14,7 @@ class Part {
     required this.stockQuantity,
     required this.location,
     required this.reorderLevel,
-    this.barcodeValue,
+
   });
 
   bool get lowStock  => stockQuantity <= reorderLevel;
