@@ -12,7 +12,8 @@ class InventoryRequestScreen extends StatefulWidget {
 enum ReqPriority { low, medium, high }
 
 class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
-  final _codeCtrl = TextEditingController();   // UI-only (not stored unless you add a column)
+  final _codeCtrl =
+      TextEditingController(); // UI-only (not stored unless you add a column)
   final _notesCtrl = TextEditingController();
 
   final _service = ProcurementService();
@@ -23,8 +24,8 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
   // Distinct locations from _parts.location
   List<String> _locations = [];
 
-  String? _selectedLocationID;   // dropdown #1
-  String? _selectedPartId;     // dropdown #2
+  String? _selectedLocationID; // dropdown #1
+  String? _selectedPartId; // dropdown #2
   int _qty = 1;
   ReqPriority _priority = ReqPriority.medium;
   bool _loading = true;
@@ -51,13 +52,15 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
 
   Future<void> _loadParts() async {
     try {
-      final parts = await _service.fetchParts(); // <-- ensure this returns location & stock_quantity
-      final locs = parts
-          .map((p) => (p['location'] ?? '').toString())
-          .where((s) => s.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      final parts = await _service
+          .fetchParts(); // <-- ensure this returns location & stock_quantity
+      final locs =
+          parts
+              .map((p) => (p['location'] ?? '').toString())
+              .where((s) => s.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
 
       setState(() {
         _parts = parts;
@@ -84,9 +87,10 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
         if (src == 'parts') {
           _shouldPrefill = true;
           final maybePart = args['part'];
-          final maybeLoc  = args['location'];
+          final maybeLoc = args['location'];
           if (maybePart is Part) _prefillPart = maybePart;
-          if (maybeLoc is String && maybeLoc.isNotEmpty) _prefillLocation = maybeLoc;
+          if (maybeLoc is String && maybeLoc.isNotEmpty)
+            _prefillLocation = maybeLoc;
         }
       }
       if (!_loading && _shouldPrefill) _applyPrefillIfAny();
@@ -104,10 +108,12 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
     if (_prefillPart != null) {
       // Find the matching part_id from fetched list by id, or fallbacks by number/name (scoped by location if provided)
       final match = _parts.firstWhere(
-            (p) =>
-        p['part_id'] == _prefillPart!.id ||
-            (p['part_number'] == _prefillPart!.number && _prefillPart!.number.isNotEmpty) ||
-            (p['part_name'] == _prefillPart!.name && (loc == null || p['location'] == loc)),
+        (p) =>
+            p['part_id'] == _prefillPart!.id ||
+            (p['part_number'] == _prefillPart!.number &&
+                _prefillPart!.number.isNotEmpty) ||
+            (p['part_name'] == _prefillPart!.name &&
+                (loc == null || p['location'] == loc)),
         orElse: () => {},
       );
       if (match.isNotEmpty) {
@@ -126,9 +132,12 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
 
       // Only preselect the part if it belongs to the selected location
       if (partId != null) {
-        final belongs = _parts.any((p) =>
-        p['part_id'] == partId &&
-            (_selectedLocationID == null || p['location'] == _selectedLocationID));
+        final belongs = _parts.any(
+          (p) =>
+              p['part_id'] == partId &&
+              (_selectedLocationID == null ||
+                  p['location'] == _selectedLocationID),
+        );
         _selectedPartId = belongs ? partId : null;
       }
     });
@@ -143,9 +152,11 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
     for (final p in _parts) {
       if (p['part_id'] == _selectedPartId) {
         final name = p['part_name'] as String? ?? 'Unknown';
-        final loc  = p['location'] as String? ?? '';
+        final loc = p['location'] as String? ?? '';
         final stock = (p['stock_quantity'] ?? 0).toString();
-        return loc.isEmpty ? '$name (Stock: $stock)' : '$name — [$loc] (Stock: $stock)';
+        return loc.isEmpty
+            ? '$name (Stock: $stock)'
+            : '$name — [$loc] (Stock: $stock)';
       }
     }
     return 'Not selected';
@@ -164,7 +175,6 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
 
     // Read args exactly once on first build
@@ -175,12 +185,20 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
     }
 
     // Filter parts by selected location
-    final filteredParts = (_selectedLocationID == null || _selectedLocationID!.isEmpty)
+    final filteredParts =
+        (_selectedLocationID == null || _selectedLocationID!.isEmpty)
         ? <Map<String, dynamic>>[]
-        : _parts.where((p) => (p['location'] ?? '') == _selectedLocationID).toList();
+        : _parts
+              .where((p) => (p['location'] ?? '') == _selectedLocationID)
+              .toList();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16 + kBottomNavigationBarHeight),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        16 + kBottomNavigationBarHeight,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -192,23 +210,25 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
                 onPressed: () => Navigator.maybePop(context),
               ),
               const SizedBox(width: 4),
-              const Text('New Request',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              const Text(
+                'New Request',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              ),
             ],
           ),
           const SizedBox(height: 8),
 
           // Select Location
-          const Text('Select Location', style: TextStyle(fontSize: 13, color: Colors.black54)),
+          const Text(
+            'Select Location',
+            style: TextStyle(fontSize: 13, color: Colors.black54),
+          ),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             value: _selectedLocationID,
             isExpanded: true,
             items: _locations
-                .map((loc) => DropdownMenuItem(
-              value: loc,
-              child: Text(loc),
-            ))
+                .map((loc) => DropdownMenuItem(value: loc, child: Text(loc)))
                 .toList(),
             onChanged: (v) {
               setState(() {
@@ -216,10 +236,14 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
                 _selectedPartId = null; // reset part when location changes
               });
             },
-            validator: (v) => (v == null || v.isEmpty) ? 'Please select a location' : null,
+            validator: (v) =>
+                (v == null || v.isEmpty) ? 'Please select a location' : null,
             decoration: InputDecoration(
               labelText: 'Location',
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: border,
@@ -233,27 +257,39 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           const SizedBox(height: 12),
 
           // Select Part (filtered by location)
-          const Text('Select Part', style: TextStyle(fontSize: 13, color: Colors.black54)),
+          const Text(
+            'Select Part',
+            style: TextStyle(fontSize: 13, color: Colors.black54),
+          ),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             value: _selectedPartId,
             isExpanded: true,
             items: filteredParts.map((p) {
               final name = p['part_name'] as String? ?? 'Unknown';
-              final loc  = p['location'] as String? ?? '';
+              final loc = p['location'] as String? ?? '';
               final stock = (p['stock_quantity'] ?? 0).toString();
-              final label = loc.isEmpty ? '$name (Stock: $stock)'
+              final label = loc.isEmpty
+                  ? '$name (Stock: $stock)'
                   : '$name — [$loc] (Stock: $stock)';
               return DropdownMenuItem(
                 value: p['part_id'] as String,
-                child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               );
             }).toList(),
             onChanged: (v) => setState(() => _selectedPartId = v),
-            validator: (v) => (v == null || v.isEmpty) ? 'Please select a part' : null,
+            validator: (v) =>
+                (v == null || v.isEmpty) ? 'Please select a part' : null,
             decoration: InputDecoration(
               labelText: 'Part',
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: border,
@@ -267,17 +303,21 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           const SizedBox(height: 12),
 
           // Optional reference code (UI only)
-
           const SizedBox(height: 12),
 
           // Quantity
-          const Text('Quantity Needed', style: TextStyle(fontSize: 13, color: Colors.black54)),
+          const Text(
+            'Quantity Needed',
+            style: TextStyle(fontSize: 13, color: Colors.black54),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
               _SquareIconButton(
                 icon: Icons.remove,
-                onTap: () => setState(() { if (_qty > 1) _qty--; }),
+                onTap: () => setState(() {
+                  if (_qty > 1) _qty--;
+                }),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -289,8 +329,13 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
                     border: Border.all(color: border.color, width: 1),
                     color: Colors.white,
                   ),
-                  child: Text('$_qty',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    '$_qty',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -303,7 +348,10 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           const SizedBox(height: 16),
 
           // Priority
-          const Text('Priority Level', style: TextStyle(fontSize: 13, color: Colors.black54)),
+          const Text(
+            'Priority Level',
+            style: TextStyle(fontSize: 13, color: Colors.black54),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -335,7 +383,10 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           const SizedBox(height: 16),
 
           // Notes
-          const Text('Notes/Justification', style: TextStyle(fontSize: 13, color: Colors.black54)),
+          const Text(
+            'Notes/Justification',
+            style: TextStyle(fontSize: 13, color: Colors.black54),
+          ),
           const SizedBox(height: 6),
           TextField(
             controller: _notesCtrl,
@@ -344,7 +395,10 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
             decoration: InputDecoration(
               hintText: 'Provide details about why this part is needed...',
               alignLabelWithHint: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: border,
@@ -370,8 +424,10 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Request Summary',
-                      style: TextStyle(fontSize: 13, color: Colors.black54)),
+                  const Text(
+                    'Request Summary',
+                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
                   const SizedBox(height: 6),
                   _kv('Location:', _selectedLocationID ?? 'Not selected'),
                   const SizedBox(height: 6),
@@ -386,37 +442,64 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Submit
+          // Submit------------------
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: (_selectedPartId == null || _submitting)
                   ? null
                   : () async {
-                setState(() => _submitting = true);
-                try {
-                  await _service.createRequest(
-                    partId: _selectedPartId!,           // part already implies location
-                    quantity: _qty,
-                    priority: _priorityLabel(_priority),
-                    notes: _notesCtrl.text,             // ignored unless you add 'notes' column
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Request submitted')),
-                    );
-                    Navigator.maybePop(context);
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
-                  }
-                } finally {
-                  if (mounted) setState(() => _submitting = false);
-                }
-              },
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Confirm Submission'),
+                          content: const Text(
+                            'Confirm Submission?'
+                                'action cannot be cancel later',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black87,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Confirm'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirm != true) return; // user cancelled
+
+                      setState(() => _submitting = true);
+                      try {
+                        await _service.createRequest(
+                          partId: _selectedPartId!,
+                          quantity: _qty,
+                          priority: _priorityLabel(_priority),
+                          notes: _notesCtrl.text,
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Request submitted')),
+                          );
+                          Navigator.maybePop(context);
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        }
+                      } finally {
+                        if (mounted) setState(() => _submitting = false);
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 backgroundColor: Colors.black87,
@@ -428,10 +511,14 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
               ),
               child: Text(
                 _submitting ? 'Submitting...' : 'Submit Request',
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
               ),
             ),
           ),
+
           const SizedBox(height: 10),
 
           // Cancel
@@ -447,8 +534,10 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
                 side: const BorderSide(color: Color(0xFFB5B5B5)),
                 foregroundColor: Colors.black87,
               ),
-              child: const Text('Cancel',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              ),
             ),
           ),
         ],
@@ -461,10 +550,16 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
       children: [
         SizedBox(
           width: 90,
-          child: Text(k, style: const TextStyle(fontSize: 13, color: Colors.black54)),
+          child: Text(
+            k,
+            style: const TextStyle(fontSize: 13, color: Colors.black54),
+          ),
         ),
         Expanded(
-          child: Text(v, style: const TextStyle(fontSize: 14, color: Colors.black87)),
+          child: Text(
+            v,
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
+          ),
         ),
       ],
     );
