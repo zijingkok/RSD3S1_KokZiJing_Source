@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../Models/part_usage_event.dart';
 import '../../Models/parts.dart';
 import '../../services/part_usage_service.dart';
 
@@ -37,7 +38,7 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
       final summary = await _usageService.fetchUsageSummary(partId);
 
       setState(() {
-        _events = events;
+        _events = events.cast<PartUsageEvent>();
         totalIn = summary['in'] ?? 0;
         totalOut = summary['out'] ?? 0;
         currentStock = stock;
