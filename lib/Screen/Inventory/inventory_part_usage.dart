@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../Models/part_usage_event.dart';
+import 'package:workshop_management/Models/part_usage_event.dart';
 import '../../Models/parts.dart';
 import '../../services/part_usage_service.dart';
 

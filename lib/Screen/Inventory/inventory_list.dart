@@ -263,12 +263,17 @@ class _InventoryCard extends StatelessWidget {
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Request More'),
+
+
+
                     onPressed: () {
                       Navigator.of(context).pushNamed(
                         '/request',
                         arguments: item, // pass part to request page
                       );
                     },
+
+
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       backgroundColor: Colors.black87,

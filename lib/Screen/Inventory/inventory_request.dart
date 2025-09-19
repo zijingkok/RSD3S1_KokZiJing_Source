@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../Models/parts.dart';
 import '../../services/procurement_service.dart';
+late final Part? initialPart;
 
 class InventoryRequestScreen extends StatefulWidget {
   const InventoryRequestScreen({super.key});
@@ -13,6 +15,7 @@ enum ReqPriority { low, medium, high }
 class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
   final _codeCtrl = TextEditingController();  // UI-only, not stored (no column)
   final _notesCtrl = TextEditingController();
+
 
   final _service = ProcurementService();
 
@@ -36,6 +39,8 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
         _parts = parts;
         if (parts.isNotEmpty) _selectedPartId = parts.first['part_id'] as String;
         _loading = false;
+
+
       });
     } catch (e) {
       debugPrint("Error loading parts: $e");

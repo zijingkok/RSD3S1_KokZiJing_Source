@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../Models/procurement_request_item.dart';
 import '../../services/procurement_service.dart';
 
 class ProcurementRequestsScreen extends StatefulWidget {
@@ -13,120 +14,127 @@ enum ReqStatus { all, pending, approved, ordered }
 
 class _ProcurementRequestsScreenState extends State<ProcurementRequestsScreen> {
   ReqStatus _filter = ReqStatus.all;
-
   final _service = ProcurementService();
-  List<ProcurementRequestItem> _items = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadRequests();
-  }
-
-  Future<void> _loadRequests() async {
-    setState(() => _loading = true);
-    try {
-      final list = await _service.fetchRequests();
-      setState(() {
-        _items = list;
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('Error loading requests: $e');
-      setState(() => _loading = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
 
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16 + kBottomNavigationBarHeight),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Back + Title
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.maybePop(context),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Procurement Requests',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
 
-    // client-side filter by status
-    final filtered = _items.where((r) {
-      switch (_filter) {
-        case ReqStatus.all:
-          return true;
-        case ReqStatus.pending:
-          return r.status.toLowerCase() == 'pending';
-        case ReqStatus.approved:
-          return r.status.toLowerCase() == 'approved';
-        case ReqStatus.ordered:
-          return r.status.toLowerCase() == 'ordered';
-      }
-    }).toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-
-    return RefreshIndicator(
-      onRefresh: _loadRequests,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16 + kBottomNavigationBarHeight),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Back + Title
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.maybePop(context),
-                ),
-                const SizedBox(width: 4),
-                const Text('Procurement Requests',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // Filters
-            Wrap(
-              spacing: 10,
-              children: [
-                _FilterPill(
-                  label: 'All',
-                  selected: _filter == ReqStatus.all,
-                  onTap: () => setState(() => _filter = ReqStatus.all),
-                ),
-                _FilterPill(
-                  label: 'Pending',
-                  selected: _filter == ReqStatus.pending,
-                  onTap: () => setState(() => _filter = ReqStatus.pending),
-                ),
-                _FilterPill(
-                  label: 'Approved',
-                  selected: _filter == ReqStatus.approved,
-                  onTap: () => setState(() => _filter = ReqStatus.approved),
-                ),
-                _FilterPill(
-                  label: 'Ordered',
-                  selected: _filter == ReqStatus.ordered,
-                  onTap: () => setState(() => _filter = ReqStatus.ordered),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Cards
-            for (final r in filtered) ...[
-              _RequestCard(req: r, border: border, onStatusChange: (newStatus) async {
-                try {
-                  await _service.updateStatus(requestId: r.id, status: newStatus);
-                  _loadRequests(); // refresh
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to update: $e')),
-                  );
-                }
-              }),
+              // Filters
+              Wrap(
+                spacing: 10,
+                children: [
+                  _FilterPill(
+                    label: 'All',
+                    selected: _filter == ReqStatus.all,
+                    onTap: () => setState(() => _filter = ReqStatus.all),
+                  ),
+                  _FilterPill(
+                    label: 'Pending',
+                    selected: _filter == ReqStatus.pending,
+                    onTap: () => setState(() => _filter = ReqStatus.pending),
+                  ),
+                  _FilterPill(
+                    label: 'Approved',
+                    selected: _filter == ReqStatus.approved,
+                    onTap: () => setState(() => _filter = ReqStatus.approved),
+                  ),
+                  _FilterPill(
+                    label: 'Ordered',
+                    selected: _filter == ReqStatus.ordered,
+                    onTap: () => setState(() => _filter = ReqStatus.ordered),
+                  ),
+                ],
+              ),
               const SizedBox(height: 12),
+
+              // List (realtime)
+              Expanded(
+                child: StreamBuilder<List<ProcurementRequest>>(
+                  stream: _service.streamRequests(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
+
+                    final all = snapshot.data ?? const <ProcurementRequest>[];
+
+                    // client-side filter by status
+                    final items = all.where((r) {
+                      switch (_filter) {
+                        case ReqStatus.all:
+                          return true;
+                        case ReqStatus.pending:
+                          return r.status.toLowerCase() == 'pending';
+                        case ReqStatus.approved:
+                          return r.status.toLowerCase() == 'approved';
+                        case ReqStatus.ordered:
+                          return r.status.toLowerCase() == 'ordered';
+                      }
+                    }).toList()
+                      ..sort((a, b) => b.requestDate.compareTo(a.requestDate));
+
+                    if (items.isEmpty) {
+                      return const Center(child: Text('No requests found.'));
+                    }
+
+                    return ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, i) {
+                        final r = items[i];
+                        return _RequestCard(
+                          req: r,
+                          border: border,
+                          onStatusChange: (newStatus) async {
+                            try {
+                              await _service.updateStatus(
+                                requestId: r.id,
+                                status: newStatus,
+                              );
+                              // no manual refresh needed — stream will update UI
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to update: $e')),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -160,19 +168,21 @@ class _FilterPill extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: selected ? selBg : const Color(0xFFB5B5B5)),
         ),
-        child: Text(label,
-            style: TextStyle(
-              fontSize: 14,
-              color: selected ? selFg : unSelFg,
-              fontWeight: FontWeight.w600,
-            )),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: selected ? selFg : unSelFg,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
 }
 
 class _RequestCard extends StatelessWidget {
-  final ProcurementRequestItem req;
+  final ProcurementRequest req;
   final BorderSide border;
   final Future<void> Function(String newStatus) onStatusChange;
 
@@ -203,7 +213,7 @@ class _RequestCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Request ID: ${req.id.substring(0, 8)}', // show short id
+                    'Request ID: ${req.id.substring(0, 8)}',
                     style: const TextStyle(
                       fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w600,
                     ),
@@ -214,7 +224,7 @@ class _RequestCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
-            Text(req.partName,
+            Text(req.partName ?? 'Unknown Part',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
 
@@ -225,10 +235,10 @@ class _RequestCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Qty: ${req.qty} Units',
+                    Text('Qty: ${req.quantity} Units',
                         style: const TextStyle(fontSize: 14, color: Colors.black87)),
                     const SizedBox(height: 4),
-                    Text(df.format(req.date),
+                    Text(df.format(req.requestDate),
                         style: const TextStyle(fontSize: 12, color: Colors.black54)),
                   ],
                 ),
@@ -239,9 +249,8 @@ class _RequestCard extends StatelessWidget {
                     )),
               ],
             ),
-            const SizedBox(height: 12),
 
-            // Quick actions (optional)
+
 
           ],
         ),
