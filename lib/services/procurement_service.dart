@@ -5,14 +5,14 @@ import '../Models/procurement_request_item.dart';
 class ProcurementService {
   final SupabaseClient _client;
   ProcurementService({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   /// Create a new procurement request
   Future<void> createRequest({
     required String partId,
     required int quantity,
     required String priority, // 'Low' | 'Normal' | 'Urgent'
-    String? notes,            // only use if you add `notes` column
+    String? notes, // only use if you add `notes` column
   }) async {
     await _client.from('procurement_requests').insert({
       'part_id': partId,
@@ -23,25 +23,25 @@ class ProcurementService {
     });
   }
 
-
   //fecth part with location
   Future<List<Map<String, dynamic>>> fetchParts() async {
     final res = await _client
         .from('parts')
-        .select('part_id, part_name, part_number, stock_quantity, location, reorder_level')
+        .select(
+          'part_id, part_name, part_number, stock_quantity, location',
+        )
         .order('part_name', ascending: true)
-        .order('location',  ascending: true);   // ← no semicolon before this
+        .order('location', ascending: true) ;// ← no semicolon before this
 
     return List<Map<String, dynamic>>.from(res as List);
   }
-
 
   /// Optional: map {part_id: part_name} (used for realtime stream join workaround)
   Future<Map<String, String>> _partsNameMap() async {
     final parts = await fetchParts();
     return {
       for (final p in parts)
-        (p['part_id'] as String): (p['part_name'] as String)
+        (p['part_id'] as String): (p['part_name'] as String),
     };
   }
 
@@ -50,13 +50,12 @@ class ProcurementService {
     final res = await _client
         .from('procurement_requests')
         .select(
-      'request_id, part_id, quantity, request_date, priority, status, parts(part_name)',
-    )
+          'request_id, part_id, quantity, request_date, priority, status, parts(part_name)',
+        )
         .order('request_date', ascending: false);
 
     return (res as List)
-        .map((row) =>
-        ProcurementRequest.fromJson(row as Map<String, dynamic>))
+        .map((row) => ProcurementRequest.fromJson(row as Map<String, dynamic>))
         .toList();
   }
 
@@ -67,15 +66,15 @@ class ProcurementService {
         .stream(primaryKey: ['request_id'])
         .order('request_date', ascending: false)
         .asyncMap((rows) async {
-      final nameMap = await _partsNameMap();
-      return rows.map((row) {
-        final map = Map<String, dynamic>.from(row);
-        map['parts'] = {
-          'part_name': nameMap[map['part_id'] as String] ?? 'Unknown Part'
-        };
-        return ProcurementRequest.fromJson(map);
-      }).toList();
-    });
+          final nameMap = await _partsNameMap();
+          return rows.map((row) {
+            final map = Map<String, dynamic>.from(row);
+            map['parts'] = {
+              'part_name': nameMap[map['part_id'] as String] ?? 'Unknown Part',
+            };
+            return ProcurementRequest.fromJson(map);
+          }).toList();
+        });
   }
 
   /// Fetch raw rows (no join) if you ever need the base model
@@ -86,8 +85,7 @@ class ProcurementService {
         .order('request_date', ascending: false);
 
     return (res as List)
-        .map((row) =>
-        ProcurementRequest.fromJson(row as Map<String, dynamic>))
+        .map((row) => ProcurementRequest.fromJson(row as Map<String, dynamic>))
         .toList();
   }
 
@@ -101,7 +99,6 @@ class ProcurementService {
         .update({'status': status})
         .eq('request_id', requestId);
   }
-
 
   /// Update status (e.g., Pending → Approved → Ordered → Arrived)
   Future<void> updateQuantity({

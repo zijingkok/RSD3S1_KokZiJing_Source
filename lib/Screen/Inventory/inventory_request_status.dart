@@ -249,9 +249,6 @@ class _RequestCard extends StatelessWidget {
                     )),
               ],
             ),
-
-
-
           ],
         ),
       ),

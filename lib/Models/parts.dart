@@ -7,6 +7,7 @@ class Part {
   final int reorderLevel;
 
 
+
   Part({
     required this.id,
     required this.name,
@@ -27,6 +28,7 @@ class Part {
       stockQuantity: json['stock_quantity'] as int,
       location: json['location'] ?? '',
       reorderLevel: json['reorder_level'] ?? 0,
+
     );
   }
 }

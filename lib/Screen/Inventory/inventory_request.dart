@@ -23,7 +23,7 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
   // Distinct locations from _parts.location
   List<String> _locations = [];
 
-  String? _selectedLocation;   // dropdown #1
+  String? _selectedLocationID;   // dropdown #1
   String? _selectedPartId;     // dropdown #2
   int _qty = 1;
   ReqPriority _priority = ReqPriority.medium;
@@ -118,17 +118,17 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
     setState(() {
       // Set location first so Part dropdown filters correctly
       if (loc != null && loc.isNotEmpty && _locations.contains(loc)) {
-        _selectedLocation = loc;
-      } else if (_locations.isNotEmpty && _selectedLocation == null) {
+        _selectedLocationID = loc;
+      } else if (_locations.isNotEmpty && _selectedLocationID == null) {
         // Optional fallback to first location if nothing provided
-        _selectedLocation = _locations.first;
+        _selectedLocationID = _locations.first;
       }
 
       // Only preselect the part if it belongs to the selected location
       if (partId != null) {
         final belongs = _parts.any((p) =>
         p['part_id'] == partId &&
-            (_selectedLocation == null || p['location'] == _selectedLocation));
+            (_selectedLocationID == null || p['location'] == _selectedLocationID));
         _selectedPartId = belongs ? partId : null;
       }
     });
@@ -164,6 +164,7 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+
     const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
 
     // Read args exactly once on first build
@@ -174,9 +175,9 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
     }
 
     // Filter parts by selected location
-    final filteredParts = (_selectedLocation == null || _selectedLocation!.isEmpty)
+    final filteredParts = (_selectedLocationID == null || _selectedLocationID!.isEmpty)
         ? <Map<String, dynamic>>[]
-        : _parts.where((p) => (p['location'] ?? '') == _selectedLocation).toList();
+        : _parts.where((p) => (p['location'] ?? '') == _selectedLocationID).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16 + kBottomNavigationBarHeight),
@@ -201,7 +202,7 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           const Text('Select Location', style: TextStyle(fontSize: 13, color: Colors.black54)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            value: _selectedLocation,
+            value: _selectedLocationID,
             isExpanded: true,
             items: _locations
                 .map((loc) => DropdownMenuItem(
@@ -211,7 +212,7 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
                 .toList(),
             onChanged: (v) {
               setState(() {
-                _selectedLocation = v;
+                _selectedLocationID = v;
                 _selectedPartId = null; // reset part when location changes
               });
             },
@@ -266,22 +267,8 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
           const SizedBox(height: 12),
 
           // Optional reference code (UI only)
-          TextField(
-            controller: _codeCtrl,
-            decoration: InputDecoration(
-              hintText: 'Enter Reference Code (optional)',
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: border,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: border,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
+
+          const SizedBox(height: 12),
 
           // Quantity
           const Text('Quantity Needed', style: TextStyle(fontSize: 13, color: Colors.black54)),
@@ -330,7 +317,7 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: _PriorityPill(
-                  label: 'Medium',
+                  label: 'Mid',
                   selected: _priority == ReqPriority.medium,
                   onTap: () => setState(() => _priority = ReqPriority.medium),
                 ),
@@ -386,7 +373,7 @@ class _InventoryRequestScreenState extends State<InventoryRequestScreen> {
                   const Text('Request Summary',
                       style: TextStyle(fontSize: 13, color: Colors.black54)),
                   const SizedBox(height: 6),
-                  _kv('Location:', _selectedLocation ?? 'Not selected'),
+                  _kv('Location:', _selectedLocationID ?? 'Not selected'),
                   const SizedBox(height: 6),
                   _kv('Part:', _selectedPartName),
                   const SizedBox(height: 6),
