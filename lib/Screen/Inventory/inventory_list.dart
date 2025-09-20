@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../Models/parts.dart';
 import '../../services/inventory_service.dart';
 
@@ -38,6 +39,20 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
     }
   }
 
+  // 🔹 Open scanner and filter by scanned code
+  Future<void> _scanAndFilter() async {
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _BarcodeScannerPage()),
+    );
+
+    if (code == null || code.isEmpty) return;
+
+    // Fill search with the scanned code and refresh results.
+    // Here we assume your barcode equals Part.number; adjust if you store a separate barcode field.
+    _search.text = code;
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
@@ -47,7 +62,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
       final matchesQuery =
           q.isEmpty ||
               e.name.toLowerCase().contains(q) ||
-              e.number.toLowerCase().contains(q);
+              e.number.toLowerCase().contains(q); // <- match on number (barcode)
       final matchesFilter = switch (_filter) {
         StockFilter.all => true,
         StockFilter.inStock => !e.lowStock,
@@ -64,16 +79,11 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
       onRefresh: _loadParts,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          16 + kBottomNavigationBarHeight,
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16 + kBottomNavigationBarHeight),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🔹 Header row with back button + title
+            // Header
             Row(
               children: [
                 IconButton(
@@ -81,15 +91,13 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                   onPressed: () => Navigator.maybePop(context),
                 ),
                 const SizedBox(width: 4),
-                const Text(
-                  'Inventory List',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
+                const Text('Inventory List',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
               ],
             ),
             const SizedBox(height: 12),
 
-            // 🔹 Search bar
+            // Search bar
             TextField(
               controller: _search,
               onChanged: (_) => setState(() {}),
@@ -101,9 +109,26 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+
+            // 🔹 Scan barcode button (below search bar)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scan barcode'),
+                onPressed: _scanAndFilter,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  side: const BorderSide(color: Color(0xFFB5B5B5)),
+                  foregroundColor: Colors.black87,
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
 
-            // 🔹 Filter pills
+            // Filter pills
             Wrap(
               spacing: 10,
               children: [
@@ -126,7 +151,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
             ),
             const SizedBox(height: 12),
 
-            // 🔹 List of inventory items
+            // List
             for (final item in filtered) ...[
               _InventoryCard(item: item, border: border),
               const SizedBox(height: 12),
@@ -137,6 +162,66 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
     );
   }
 }
+
+class _BarcodeScannerPage extends StatefulWidget {
+  const _BarcodeScannerPage({super.key});
+
+  @override
+  State<_BarcodeScannerPage> createState() => _BarcodeScannerPageState();
+}
+
+class _BarcodeScannerPageState extends State<_BarcodeScannerPage> {
+  final MobileScannerController _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+    facing: CameraFacing.back,
+  );
+
+  bool _handled = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_handled) return;
+
+    final codes = capture.barcodes;
+    if (codes.isEmpty) return;
+
+    final value = codes.first.rawValue ?? '';
+    if (value.isEmpty) return;
+
+    _handled = true;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Scan barcode'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.flash_on),
+            onPressed: () => _controller.toggleTorch(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.cameraswitch),
+            onPressed: () => _controller.switchCamera(),
+          ),
+        ],
+      ),
+      body: MobileScanner(
+        controller: _controller,
+        onDetect: _onDetect,
+      ),
+    );
+  }
+}
+
+
 
 class _FilterPill extends StatelessWidget {
   final String label;
@@ -263,12 +348,21 @@ class _InventoryCard extends StatelessWidget {
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Request More'),
+
+
+
+                    // In your parts list screen
                     onPressed: () {
                       Navigator.of(context).pushNamed(
                         '/request',
-                        arguments: item, // pass part to request page
+                        arguments: {
+                          'source': 'parts',
+                          'part': item,               // Part
+                          'location': item.location,  // optional
+                        },
                       );
                     },
+
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       backgroundColor: Colors.black87,

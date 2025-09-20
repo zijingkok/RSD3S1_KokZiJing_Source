@@ -7,10 +7,14 @@ environment:
   sdk: ^3.8.1
 
 dependencies:
+  rxdart: ^0.27.0
+  mobile_scanner: ^3.5.7
   flutter:
     sdk: flutter
   intl: ^0.18.0
   supabase_flutter: ^2.10.0
+  image_picker: ^1.0.4
+
 
 
 

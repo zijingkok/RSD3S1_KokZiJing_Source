@@ -6,6 +6,8 @@ class Part {
   final String location;
   final int reorderLevel;
 
+
+
   Part({
     required this.id,
     required this.name,
@@ -13,6 +15,7 @@ class Part {
     required this.stockQuantity,
     required this.location,
     required this.reorderLevel,
+
   });
 
   bool get lowStock  => stockQuantity <= reorderLevel;
@@ -25,6 +28,7 @@ class Part {
       stockQuantity: json['stock_quantity'] as int,
       location: json['location'] ?? '',
       reorderLevel: json['reorder_level'] ?? 0,
+
     );
   }
 }

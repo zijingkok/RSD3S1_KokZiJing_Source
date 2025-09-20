@@ -3,16 +3,30 @@ import 'package:flutter/material.dart';
 import '../../Models/inventory_summary.dart' ;
 import '../../services/inventory_service.dart' ;
 
-class InventoryDashboard extends StatelessWidget {
+class InventoryDashboard extends StatefulWidget {
   const InventoryDashboard({super.key});
+
+  @override
+  State<InventoryDashboard> createState() => _InventoryDashboardState();
+}
+
+class _InventoryDashboardState extends State<InventoryDashboard> {
+  late final InventoryService _service;
+  late final Stream<InventorySummary> _summaryStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = InventoryService();
+    _summaryStream = _service.streamInventorySummary(); // 👈 stable stream
+  }
 
   @override
   Widget build(BuildContext context) {
     const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
-    final service = InventoryService();
 
-    return FutureBuilder<InventorySummary>(
-      future: service.fetchInventorySummary(),
+    return StreamBuilder<InventorySummary>(
+      stream: _summaryStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -20,6 +34,10 @@ class InventoryDashboard extends StatelessWidget {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
+        if (!snapshot.hasData) {
+          return const Center(child: Text('No data available.'));
+        }
+
         final data = snapshot.data!;
 
         return SingleChildScrollView(
@@ -49,15 +67,15 @@ class InventoryDashboard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
+              // 🔹 Realtime cards
               _OverviewCard(
                 icon: Icons.inventory_2_outlined,
                 title: 'Total Stocked Parts',
                 value: data.totalStockedParts.toString(),
-                hint: '+12% from last month',
+                hint: 'Total Parts across warehouses',
                 border: border,
               ),
               const SizedBox(height: 12),
-
               _OverviewCard(
                 icon: Icons.warning_amber_outlined,
                 title: 'Low Stock Alerts',
@@ -66,7 +84,6 @@ class InventoryDashboard extends StatelessWidget {
                 border: border,
               ),
               const SizedBox(height: 12),
-
               _OverviewCard(
                 icon: Icons.schedule_outlined,
                 title: 'Pending Procurement',

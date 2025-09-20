@@ -1,46 +1,25 @@
 // services/part_usage_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-class PartUsageEvent {
-  final DateTime dateTime;
-  final int deltaUnits;
-  final String workOrder;
-  final String mechanic;
-  final String department;
-
-  PartUsageEvent({
-    required this.dateTime,
-    required this.deltaUnits,
-    required this.workOrder,
-    required this.mechanic,
-    required this.department,
-  });
-
-  factory PartUsageEvent.fromJson(Map<String, dynamic> json) {
-    return PartUsageEvent(
-      dateTime: DateTime.parse(json['usage_date']),
-      deltaUnits: (json['quantity'] as int?) ?? 0,
-      workOrder: json['work_orders']?['code'] ?? 'N/A',
-      mechanic: json['staff']?['full_name'] ?? 'Unknown',
-      department: json['department'] ?? '-',
-    );
-  }
-}
+import '../Models/part_usage_event.dart';
 
 class PartUsageService {
-  final _client = Supabase.instance.client;
+  final SupabaseClient _client;
+
+  PartUsageService({SupabaseClient? client})
+      : _client = client ?? Supabase.instance.client;
 
   Future<List<PartUsageEvent>> fetchUsageHistory(String partId) async {
     final res = await _client
         .from('part_usage')
-        .select('usage_date, quantity, department, '
-        'work_orders(code), staff(full_name)')
+        .select('usage_date, quantity, department, work_orders(code), staff(full_name)')
         .eq('part_id', partId)
         .order('usage_date', ascending: false);
 
-    return (res as List<dynamic>)
-        .map((e) => PartUsageEvent.fromJson(e))
+    final list = (res as List)
+        .map((e) => PartUsageEvent.fromSupabase(e as Map<String, dynamic>))
         .toList();
+
+    return list;
   }
 
   Future<Map<String, int>> fetchUsageSummary(String partId) async {
@@ -52,18 +31,16 @@ class PartUsageService {
     int totalIn = 0;
     int totalOut = 0;
 
-    for (final row in res) {
-      final qty = row['quantity'] as int? ?? 0;
+    for (final row in (res as List)) {
+      final raw = row['quantity'];
+      final qty = raw is int ? raw : int.tryParse('$raw') ?? 0;
       if (qty >= 0) {
         totalIn += qty;
       } else {
-        totalOut += qty.abs();
+        totalOut += -qty;
       }
     }
 
-    return {
-      'in': totalIn,
-      'out': totalOut,
-    };
+    return {'in': totalIn, 'out': totalOut};
   }
 }
