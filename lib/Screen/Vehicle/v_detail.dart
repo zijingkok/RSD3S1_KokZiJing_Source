@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '/models/vehicle.dart';
 import 'v_edit_vehicle.dart';
+import 'v_vehicle_qr.dart';
 
 class VehicleDetailPage extends StatefulWidget {
   final Vehicle vehicle;
@@ -31,10 +32,10 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
     setState(() => _isLoading = true);
 
     try {
-
+      // Debug: Print the vehicle ID we're looking for
       print('Looking for vehicle with ID: ${_currentVehicle.id}');
 
-
+      // Try method 1: Join query
       try {
         final response = await _supabase
             .from('vehicles')
@@ -59,7 +60,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
           _currentVehicle = Vehicle.fromJson(response);
         });
 
-
+        // If customer data is still null, try separate query
         if (_currentVehicle.customerName == null && _currentVehicle.customerId != null) {
           print('Join failed, trying separate query for customer_id: ${_currentVehicle.customerId}');
           await _loadCustomerSeparately();
@@ -68,7 +69,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
       } catch (joinError) {
         print('Join query failed: $joinError');
 
-
+        // Method 2: Load vehicle first, then customer separately
         final vehicleResponse = await _supabase
             .from('vehicles')
             .select('*')
@@ -81,13 +82,13 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
           _currentVehicle = Vehicle.fromJson(vehicleResponse);
         });
 
-
+        // Load customer separately
         if (_currentVehicle.customerId != null) {
           await _loadCustomerSeparately();
         }
       }
 
-
+      // Debug: Print final parsed customer data
       print('Final parsed customer name: ${_currentVehicle.customerName}');
       print('Final parsed customer IC: ${_currentVehicle.customerIc}');
 
@@ -328,6 +329,18 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
       appBar: AppBar(
         title: const Text("Vehicle Details"),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => VehicleQRPage(vehicle: _currentVehicle),
+                ),
+              );
+            },
+            tooltip: 'Generate QR Code',
+          ),
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: _navigateToEdit,

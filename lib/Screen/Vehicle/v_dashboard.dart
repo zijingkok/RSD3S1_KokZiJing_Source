@@ -4,6 +4,7 @@ import '/models/vehicle.dart';
 import 'v_add_vehicle.dart';
 import 'v_list.dart';
 import 'v_detail.dart';
+import 'v_enhanced_search.dart';
 
 class VehicleDashboard extends StatefulWidget {
   const VehicleDashboard({super.key});
@@ -286,22 +287,46 @@ class _VehicleDashboardState extends State<VehicleDashboard> with WidgetsBinding
             // Search and filter bar
             Column(
               children: [
-                // Search bar
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search vehicles',
-                    prefixIcon: const Icon(Icons.search, color: Colors.black54),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 14),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFB5B5B5), width: 1),
+                // Search bar with enhanced search button
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search vehicles',
+                          prefixIcon: const Icon(Icons.search, color: Colors.black54),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 14),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFB5B5B5), width: 1),
+                          ),
+                        ),
+                        onChanged: (value) => _applyFilters(),
+                      ),
                     ),
-                  ),
-                  onChanged: (value) => _applyFilters(),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const EnhancedVehicleSearchPage(),
+                          ),
+                        ).then((_) => _loadDashboardData()); // Refresh when returning
+                      },
+                      icon: const Icon(Icons.tune, size: 18),
+                      label: const Text('Advanced'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                // Status filter
+                // Status filter (keep existing)
                 DropdownButtonFormField<String>(
                   value: _selectedStatus,
                   decoration: InputDecoration(
