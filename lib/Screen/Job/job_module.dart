@@ -25,13 +25,7 @@ class JobModule extends StatelessWidget {
             JobWorkloadTab(),
           ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () async {
-            // optional quick-create flow; for now assignment happens per row menu
-          },
-          icon: const Icon(Icons.add),
-          label: const Text('Assign'),
-        ),
+
       ),
     );
   }

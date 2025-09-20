@@ -17,14 +17,10 @@ class JobTaskTab extends StatefulWidget {
 class _JobTaskTabState extends State<JobTaskTab> {
   WorkOrderStatus? _filter; // null = all
 
-  // map Accepted → InProgress for UI purposes
+  // no mapping; just filter
   List<WorkOrder> _applyFilter(List<WorkOrder> items) {
-    return items.where((wo) {
-      final statusForUi = (wo.status == WorkOrderStatus.accepted)
-          ? WorkOrderStatus.inProgress
-          : wo.status;
-      return _filter == null || statusForUi == _filter;
-    }).toList();
+    if (_filter == null) return items;
+    return items.where((wo) => wo.status == _filter).toList();
   }
 
 
@@ -44,9 +40,7 @@ class _JobTaskTabState extends State<JobTaskTab> {
     }
 
     // apply filter
-    final filtered = _filter == null
-        ? items
-        : items.where((wo) => wo.status == _filter).toList();
+    final filtered = _applyFilter(store.workOrders);
 
     return Column(
       children: [
@@ -116,9 +110,7 @@ class _WorkOrderTile extends StatelessWidget {
   const _WorkOrderTile({required this.wo});
   final WorkOrder wo;
 
-  // UI mapping: show "In Progress" when status == accepted
-  WorkOrderStatus get _uiStatus =>
-      wo.status == WorkOrderStatus.accepted ? WorkOrderStatus.inProgress : wo.status;
+
 
   Color _statusColor(WorkOrderStatus s) {
     switch (s) {
@@ -183,12 +175,12 @@ class _WorkOrderTile extends StatelessWidget {
                     Container(
                       width: 10, height: 10,
                       decoration: BoxDecoration(
-                        color: _statusColor(_uiStatus),
+                        color: _statusColor(wo.status),
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(_statusText(_uiStatus), style: TextStyle(color: _statusColor(_uiStatus))),
+                    Text(_statusText(wo.status), style: TextStyle(color: _statusColor(wo.status))),
                   ],
                 ),
               ],
@@ -255,7 +247,7 @@ class _WorkOrderTile extends StatelessWidget {
             ),
 
             // On Hold → Reassign + Reschedule (prefilled with current)
-            if (!isUnassigned && _uiStatus == WorkOrderStatus.onHold) Row(
+            if (!isUnassigned && (wo.status == WorkOrderStatus.accepted || wo.status == WorkOrderStatus.onHold)) Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
