@@ -32,14 +32,32 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  // TEMP while designing UI
+  // supabase - auth - sign in
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => DashboardScreen()),
-    );
+
+    setState(() => _loading = true);
+    final supa = Supabase.instance.client;
+
+    try {
+      final res = await supa.auth.signInWithPassword(
+        email: _emailC.text.trim(),
+        password: _passwordC.text,
+      );
+
+      final user = res.user;
+      if (user != null && mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => DashboardScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) _showError('Invalid gmail or password.Please try again ');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
+
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
