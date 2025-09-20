@@ -4,7 +4,9 @@ import '/models/vehicle.dart';
 import 'v_add_vehicle.dart';
 import 'v_list.dart';
 import 'v_detail.dart';
-import 'v_enhanced_search.dart';
+import 'v_advance_search.dart';
+import 'v_analytic.dart';
+import 'v_qr_scanner.dart';
 
 class VehicleDashboard extends StatefulWidget {
   const VehicleDashboard({super.key});
@@ -165,6 +167,24 @@ class _VehicleDashboardState extends State<VehicleDashboard> with WidgetsBinding
     }
   }
 
+  // Add navigation to analytics page
+  Future<void> _navigateToAnalytics() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const VehicleAnalyticsPage()),
+    );
+  }
+
+  // Add navigation to QR Scanner page
+  Future<void> _navigateToQRScanner() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const VehicleQRScannerPage()),
+    );
+    // Refresh data when returning in case vehicle was accessed/modified
+    _loadDashboardData();
+  }
+
   // Add pull-to-refresh functionality
   Future<void> _onRefresh() async {
     await _loadDashboardData();
@@ -184,7 +204,7 @@ class _VehicleDashboardState extends State<VehicleDashboard> with WidgetsBinding
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Page Title with refresh button
+            // Page Title with analytics and refresh button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -192,44 +212,79 @@ class _VehicleDashboardState extends State<VehicleDashboard> with WidgetsBinding
                   'Vehicle Dashboard',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                 ),
-                IconButton(
-                  icon: _isLoading
-                      ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                      : const Icon(Icons.refresh),
-                  onPressed: _isLoading ? null : _loadDashboardData,
-                  tooltip: 'Refresh Dashboard',
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.analytics_outlined),
+                      onPressed: _navigateToAnalytics,
+                      tooltip: 'View Analytics',
+                    ),
+                    IconButton(
+                      icon: _isLoading
+                          ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                          : const Icon(Icons.refresh),
+                      onPressed: _isLoading ? null : _loadDashboardData,
+                      tooltip: 'Refresh Dashboard',
+                    ),
+                  ],
                 ),
               ],
             ),
             const SizedBox(height: 14),
 
-            // Quick Actions
+            // Quick Actions - Updated to include Analytics
             const Text(
               'Quick Actions',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
 
-            Row(
+            Column(
               children: [
-                Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.add_circle_outline,
-                    label: 'Add Vehicle',
-                    onTap: _navigateToAddVehicle,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _QuickActionCard(
+                        icon: Icons.add_circle_outline,
+                        label: 'Add Vehicle',
+                        onTap: _navigateToAddVehicle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _QuickActionCard(
+                        icon: Icons.list_alt_outlined,
+                        label: 'View All',
+                        onTap: _navigateToVehicleList,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.list_alt_outlined,
-                    label: 'View All',
-                    onTap: _navigateToVehicleList,
-                  ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _QuickActionCard(
+                        icon: Icons.analytics_outlined,
+                        label: 'Analytics',
+                        onTap: _navigateToAnalytics,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // QR Scanner quick action
+                    Expanded(
+                      child: _QuickActionCard(
+                        icon: Icons.qr_code_scanner,
+                        label: 'Scan QR',
+                        onTap: _navigateToQRScanner,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

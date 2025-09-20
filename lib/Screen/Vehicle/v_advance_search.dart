@@ -3,23 +3,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '/models/vehicle.dart';
 import 'v_detail.dart';
 
-class VehicleListPage extends StatefulWidget {
-  const VehicleListPage({super.key});
+class EnhancedVehicleSearchPage extends StatefulWidget {
+  const EnhancedVehicleSearchPage({super.key});
 
   @override
-  State<VehicleListPage> createState() => _VehicleListPageState();
+  State<EnhancedVehicleSearchPage> createState() => _EnhancedVehicleSearchPageState();
 }
 
-class _VehicleListPageState extends State<VehicleListPage> {
+class _EnhancedVehicleSearchPageState extends State<EnhancedVehicleSearchPage>
+    with TickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
-  final TextEditingController _searchController = TextEditingController();
+  final _searchController = TextEditingController();
+  late TabController _tabController;
 
-  String _selectedStatus = "All";
-  List<Vehicle> _vehicles = [];
+  List<Vehicle> _allVehicles = [];
   List<Vehicle> _filteredVehicles = [];
+  Set<String> _selectedVehicles = {};
   bool _isLoading = true;
 
-  // Advanced filter states
+  // Filter states
   Set<String> _selectedStatuses = {};
   Set<String> _selectedMakes = {};
   Set<String> _selectedYears = {};
@@ -57,11 +59,13 @@ class _VehicleListPageState extends State<VehicleListPage> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadVehicles();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -86,7 +90,7 @@ class _VehicleListPageState extends State<VehicleListPage> {
           ''')
           .order('created_at', ascending: false);
 
-      _vehicles = (response as List)
+      _allVehicles = (response as List)
           .map((json) => Vehicle.fromJson(json))
           .toList();
 
@@ -102,29 +106,28 @@ class _VehicleListPageState extends State<VehicleListPage> {
   }
 
   void _buildFilterOptions() {
-    _availableMakes = _vehicles
+    _availableMakes = _allVehicles
         .map((v) => v.make)
         .toSet()
         .toList()
       ..sort();
 
-    _availableYears = _vehicles
+    _availableYears = _allVehicles
         .map((v) => v.year.toString())
         .toSet()
         .toList()
       ..sort((a, b) => b.compareTo(a));
 
-    _maxMileage = _vehicles.isEmpty
+    _maxMileage = _allVehicles.isEmpty
         ? 200000
-        : _vehicles.map((v) => v.mileage.toDouble()).reduce((a, b) => a > b ? a : b);
+        : _allVehicles.map((v) => v.mileage.toDouble()).reduce((a, b) => a > b ? a : b);
 
     if (_maxMileage < 100000) _maxMileage = 200000;
     _mileageRange = RangeValues(0, _maxMileage);
   }
 
   void _applyFilters() {
-    _filteredVehicles = _vehicles.where((vehicle) {
-      // Text search
+    _filteredVehicles = _allVehicles.where((vehicle) {
       bool searchMatch = _searchController.text.isEmpty ||
           vehicle.plateNumber.toLowerCase().contains(_searchController.text.toLowerCase()) ||
           vehicle.make.toLowerCase().contains(_searchController.text.toLowerCase()) ||
@@ -132,30 +135,18 @@ class _VehicleListPageState extends State<VehicleListPage> {
           vehicle.vin.toLowerCase().contains(_searchController.text.toLowerCase()) ||
           (vehicle.customerName?.toLowerCase().contains(_searchController.text.toLowerCase()) ?? false);
 
-      // Basic status filter (for dropdown compatibility)
-      bool basicStatusMatch = _selectedStatus == "All" ||
-          vehicle.status.toLowerCase() == _selectedStatus.toLowerCase();
-
-      // Advanced status filter
-      bool advancedStatusMatch = _selectedStatuses.isEmpty ||
+      bool statusMatch = _selectedStatuses.isEmpty ||
           _selectedStatuses.contains(vehicle.status);
 
-      // Use advanced filter if any advanced filters are set, otherwise use basic
-      bool statusMatch = _hasAdvancedFilters() ? advancedStatusMatch : basicStatusMatch;
-
-      // Make filter
       bool makeMatch = _selectedMakes.isEmpty ||
           _selectedMakes.contains(vehicle.make);
 
-      // Year filter
       bool yearMatch = _selectedYears.isEmpty ||
           _selectedYears.contains(vehicle.year.toString());
 
-      // Mileage range filter
       bool mileageMatch = vehicle.mileage >= _mileageRange.start &&
           vehicle.mileage <= _mileageRange.end;
 
-      // Purchase date filter
       bool purchaseDateMatch = true;
       if (_purchaseDateFrom != null || _purchaseDateTo != null) {
         if (vehicle.purchaseDate != null) {
@@ -170,7 +161,6 @@ class _VehicleListPageState extends State<VehicleListPage> {
         }
       }
 
-      // Created date filter
       bool createdDateMatch = true;
       if (_createdDateFrom != null || _createdDateTo != null) {
         if (vehicle.createdAt != null) {
@@ -192,22 +182,9 @@ class _VehicleListPageState extends State<VehicleListPage> {
     setState(() {});
   }
 
-  bool _hasAdvancedFilters() {
-    return _selectedStatuses.isNotEmpty ||
-        _selectedMakes.isNotEmpty ||
-        _selectedYears.isNotEmpty ||
-        _mileageRange.start > 0 ||
-        _mileageRange.end < _maxMileage ||
-        _purchaseDateFrom != null ||
-        _purchaseDateTo != null ||
-        _createdDateFrom != null ||
-        _createdDateTo != null;
-  }
-
   void _clearAllFilters() {
     setState(() {
       _searchController.clear();
-      _selectedStatus = "All";
       _selectedStatuses.clear();
       _selectedMakes.clear();
       _selectedYears.clear();
@@ -216,6 +193,7 @@ class _VehicleListPageState extends State<VehicleListPage> {
       _purchaseDateTo = null;
       _createdDateFrom = null;
       _createdDateTo = null;
+      _selectedVehicles.clear();
     });
     _applyFilters();
   }
@@ -242,6 +220,74 @@ class _VehicleListPageState extends State<VehicleListPage> {
 
     _applyFilters();
     _showSuccessSnackBar('Applied preset: $presetName');
+  }
+
+  void _toggleVehicleSelection(String vehicleId) {
+    setState(() {
+      if (_selectedVehicles.contains(vehicleId)) {
+        _selectedVehicles.remove(vehicleId);
+      } else {
+        _selectedVehicles.add(vehicleId);
+      }
+    });
+  }
+
+  void _selectAllFiltered() {
+    setState(() {
+      _selectedVehicles.clear();
+      _selectedVehicles.addAll(_filteredVehicles.map((v) => v.id!));
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedVehicles.clear();
+    });
+  }
+
+  Future<void> _bulkStatusUpdate(String newStatus) async {
+    if (_selectedVehicles.isEmpty) {
+      _showErrorSnackBar('No vehicles selected');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bulk Status Update'),
+        content: Text('Update ${_selectedVehicles.length} vehicles to "$newStatus" status?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        setState(() => _isLoading = true);
+
+        for (String vehicleId in _selectedVehicles) {
+          await _supabase
+              .from('vehicles')
+              .update({'status': newStatus})
+              .eq('vehicle_id', vehicleId);
+        }
+
+        _showSuccessSnackBar('Updated ${_selectedVehicles.length} vehicles');
+        _clearSelection();
+        _loadVehicles();
+
+      } catch (e) {
+        _showErrorSnackBar('Failed to update vehicles: $e');
+      }
+    }
   }
 
   Future<void> _selectDate(bool isFrom, bool isPurchaseDate) async {
@@ -511,6 +557,18 @@ class _VehicleListPageState extends State<VehicleListPage> {
     );
   }
 
+  bool _hasActiveFilters() {
+    return _selectedStatuses.isNotEmpty ||
+        _selectedMakes.isNotEmpty ||
+        _selectedYears.isNotEmpty ||
+        _mileageRange.start > 0 ||
+        _mileageRange.end < _maxMileage ||
+        _purchaseDateFrom != null ||
+        _purchaseDateTo != null ||
+        _createdDateFrom != null ||
+        _createdDateTo != null;
+  }
+
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -528,6 +586,385 @@ class _VehicleListPageState extends State<VehicleListPage> {
         backgroundColor: Colors.green,
         duration: const Duration(seconds: 2),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Vehicle Search'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Search Results', icon: Icon(Icons.search)),
+            Tab(text: 'Selection', icon: Icon(Icons.checklist)),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadVehicles,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Search Bar (always visible)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 3,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search vehicles...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _applyFilters();
+                        },
+                      )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    onChanged: (_) => _applyFilters(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: _hasActiveFilters() ? Colors.blue : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _hasActiveFilters() ? Colors.blue : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.tune,
+                      color: _hasActiveFilters() ? Colors.white : Colors.grey.shade600,
+                    ),
+                    onPressed: _showFilterBottomSheet,
+                    tooltip: 'Filters & Presets',
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Results Count & Active Filters
+          if (_hasActiveFilters() || _filteredVehicles.length != _allVehicles.length)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.blue.shade50,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${_filteredVehicles.length} of ${_allVehicles.length} vehicles',
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (_hasActiveFilters())
+                    TextButton(
+                      onPressed: _clearAllFilters,
+                      child: const Text('Clear Filters'),
+                    ),
+                ],
+              ),
+            ),
+
+          // Tab Views
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Search Results Tab
+                _buildSearchResults(),
+
+                // Selection Tab
+                _buildSelectionView(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_filteredVehicles.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'No vehicles found',
+              style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try adjusting your search or filters',
+              style: TextStyle(color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _filteredVehicles.length,
+      itemBuilder: (context, index) {
+        final vehicle = _filteredVehicles[index];
+        final isSelected = _selectedVehicles.contains(vehicle.id);
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: isSelected ? Colors.blue : const Color(0xFFB5B5B5),
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: ListTile(
+            leading: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Checkbox(
+                  value: isSelected,
+                  onChanged: (_) => _toggleVehicleSelection(vehicle.id!),
+                ),
+                const Icon(Icons.directions_car, size: 24),
+              ],
+            ),
+            title: Text(
+              '${vehicle.plateNumber} - ${vehicle.make} ${vehicle.model}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Year: ${vehicle.year} • ${vehicle.mileage} miles'),
+                if (vehicle.customerName != null)
+                  Text('Owner: ${vehicle.customerName}'),
+              ],
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _getStatusColor(vehicle.status).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _getStatusColor(vehicle.status)),
+              ),
+              child: Text(
+                _getStatusDisplayText(vehicle.status),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _getStatusColor(vehicle.status),
+                ),
+              ),
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => VehicleDetailPage(vehicle: vehicle),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSelectionView() {
+    final selectedVehiclesList = _allVehicles.where((v) => _selectedVehicles.contains(v.id)).toList();
+
+    return Column(
+      children: [
+        // Selection Actions Header
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${_selectedVehicles.length} vehicle${_selectedVehicles.length != 1 ? 's' : ''} selected',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  if (_filteredVehicles.isNotEmpty && _selectedVehicles.isEmpty)
+                    TextButton(
+                      onPressed: _selectAllFiltered,
+                      child: const Text('Select All Filtered'),
+                    ),
+                  if (_selectedVehicles.isNotEmpty)
+                    TextButton(
+                      onPressed: _clearSelection,
+                      child: const Text('Clear Selection'),
+                    ),
+                ],
+              ),
+
+              // Bulk Actions
+              if (_selectedVehicles.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _bulkStatusUpdate('active'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                        child: const Text('Mark Active', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _bulkStatusUpdate('in-service'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                        child: const Text('Mark In Service', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _bulkStatusUpdate('inactive'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                        child: const Text('Mark Inactive', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Selected Vehicles List
+        Expanded(
+          child: selectedVehiclesList.isEmpty
+              ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.checklist, size: 64, color: Colors.grey.shade400),
+                const SizedBox(height: 16),
+                Text(
+                  'No vehicles selected',
+                  style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Go to Search Results to select vehicles',
+                  style: TextStyle(color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          )
+              : ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: selectedVehiclesList.length,
+            itemBuilder: (context, index) {
+              final vehicle = selectedVehiclesList[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.blue, width: 2),
+                ),
+                child: ListTile(
+                  leading: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                        onPressed: () => _toggleVehicleSelection(vehicle.id!),
+                        tooltip: 'Remove from selection',
+                      ),
+                      const Icon(Icons.directions_car, size: 24),
+                    ],
+                  ),
+                  title: Text(
+                    '${vehicle.plateNumber} - ${vehicle.make} ${vehicle.model}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Year: ${vehicle.year} • ${vehicle.mileage} miles'),
+                      if (vehicle.customerName != null)
+                        Text('Owner: ${vehicle.customerName}'),
+                    ],
+                  ),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(vehicle.status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _getStatusColor(vehicle.status)),
+                    ),
+                    child: Text(
+                      _getStatusDisplayText(vehicle.status),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _getStatusColor(vehicle.status),
+                      ),
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => VehicleDetailPage(vehicle: vehicle),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -555,273 +992,6 @@ class _VehicleListPageState extends State<VehicleListPage> {
       default:
         return status;
     }
-  }
-
-  Future<void> _refreshVehicles() async {
-    await _loadVehicles();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("All Vehicles"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refreshVehicles,
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Search + Filter Row
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: "Search by Plate, Make, or Model",
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _applyFilters();
-                        },
-                      )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    onChanged: (_) => _applyFilters(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (!_hasAdvancedFilters()) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: DropdownButton<String>(
-                      value: _selectedStatus,
-                      underline: const SizedBox(),
-                      items: ["All", "Active", "In-Service", "Inactive"]
-                          .map((status) => DropdownMenuItem(
-                        value: status,
-                        child: Text(status),
-                      ))
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() => _selectedStatus = value!);
-                        _applyFilters();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                Container(
-                  decoration: BoxDecoration(
-                    color: _hasAdvancedFilters() ? Colors.blue : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _hasAdvancedFilters() ? Colors.blue : Colors.grey.shade300,
-                    ),
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.tune,
-                      color: _hasAdvancedFilters() ? Colors.white : Colors.grey.shade600,
-                    ),
-                    onPressed: _showFilterBottomSheet,
-                    tooltip: 'Advanced Filters',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Results count and active filters indicator
-            Row(
-              children: [
-                Text(
-                  'Found ${_filteredVehicles.length} vehicle${_filteredVehicles.length != 1 ? 's' : ''}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (_hasAdvancedFilters()) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.shade300),
-                    ),
-                    child: Text(
-                      'Filtered',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.blue.shade700,
-                      ),
-                    ),
-                  ),
-                ],
-                const Spacer(),
-                if (_vehicles.length != _filteredVehicles.length || _hasAdvancedFilters())
-                  TextButton(
-                    onPressed: _clearAllFilters,
-                    child: const Text('Clear filters'),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // Vehicle List
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _filteredVehicles.isEmpty
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.directions_car_outlined,
-                      size: 64,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _vehicles.isEmpty
-                          ? 'No vehicles found'
-                          : 'No vehicles match your filters',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (_vehicles.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Try adjusting your search or filters',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              )
-                  : RefreshIndicator(
-                onRefresh: _refreshVehicles,
-                child: ListView.builder(
-                  itemCount: _filteredVehicles.length,
-                  itemBuilder: (context, index) {
-                    final vehicle = _filteredVehicles[index];
-
-                    return Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: Color(0xFFB5B5B5)),
-                      ),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xFFF3F4F6),
-                          radius: 24,
-                          child: Icon(
-                            Icons.directions_car,
-                            color: Colors.black87,
-                            size: 24,
-                          ),
-                        ),
-                        title: Text(
-                          vehicle.plateNumber,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 4),
-                            Text('${vehicle.make} ${vehicle.model}'),
-                            const SizedBox(height: 2),
-                            Text('Year: ${vehicle.year} • ${vehicle.mileage} miles'),
-                            if (vehicle.customerName != null && vehicle.customerName!.isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              Text('Owner: ${vehicle.customerName}'),
-                            ],
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(vehicle.status).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _getStatusColor(vehicle.status),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Text(
-                                _getStatusDisplayText(vehicle.status),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: _getStatusColor(vehicle.status),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.arrow_forward_ios,
-                              size: 16,
-                              color: Colors.grey,
-                            ),
-                          ],
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => VehicleDetailPage(vehicle: vehicle),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
