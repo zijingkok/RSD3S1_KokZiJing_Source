@@ -43,6 +43,15 @@ class WorkOrderService {
         .eq('work_order_id', workOrderId);
   }
 
+  Future<void> updateNotes({required String workOrderId, required String notes}) async {
+    // Example Supabase update (adjust table/columns if needed)
+    await _client
+        .from('work_orders')
+        .update({'notes': notes, 'updated_at': DateTime.now().toIso8601String()})
+        .eq('work_order_id', workOrderId);
+  }
+
+
   Future<void> reschedule({
     required String workOrderId,
     required DateTime newStart,

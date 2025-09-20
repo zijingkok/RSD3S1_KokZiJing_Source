@@ -4,6 +4,7 @@ import '../../state/work_order_store.dart';
 import '../../state/mechanic_store.dart';
 import '../../Models/work_order.dart';
 import 'widgets/assign_work_order_sheet.dart';
+import 'work_order_details_page.dart';
 import '../../Models/mechanic.dart';
 
 class JobTaskTab extends StatefulWidget {
@@ -233,6 +234,14 @@ class _WorkOrderTile extends StatelessWidget {
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
     return Card(
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => WorkOrderDetailsPage(workOrder: wo),
+              ),
+            );
+          },
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -400,6 +409,7 @@ class _WorkOrderTile extends StatelessWidget {
           ],
         ),
       ),
+    )
     );
   }
 }

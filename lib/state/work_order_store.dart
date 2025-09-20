@@ -30,4 +30,17 @@ class WorkOrderStore extends ChangeNotifier {
     await _svc.reschedule(workOrderId: id, newStart: newStart);
     await fetch();
   }
+
+  WorkOrder? byId(String id) {
+    try {
+      return workOrders.firstWhere((w) => w.workOrderId == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setNotes(String id, String notes) async {
+    await _svc.updateNotes(workOrderId: id, notes: notes);
+    await fetch();
+  }
 }
