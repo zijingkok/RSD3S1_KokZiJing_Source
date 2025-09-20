@@ -34,41 +34,94 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
       // Debug: Print the vehicle ID we're looking for
       print('Looking for vehicle with ID: ${_currentVehicle.id}');
 
-      // Fetch vehicle with customer data using proper join
-      final response = await _supabase
-          .from('vehicles')
-          .select('''
-            *,
-            customers (
-              customer_id,
-              full_name,
-              ic_no,
-              phone,
-              email,
-              gender,
-              address
-            )
-          ''')
-          .eq('vehicle_id', _currentVehicle.id!)
-          .single();
+      // Try method 1: Join query
+      try {
+        final response = await _supabase
+            .from('vehicles')
+            .select('''
+              *,
+              customers (
+                customer_id,
+                full_name,
+                ic_no,
+                phone,
+                email,
+                gender,
+                address
+              )
+            ''')
+            .eq('vehicle_id', _currentVehicle.id!)
+            .single();
 
-      // Debug: Print the raw response
-      print('Raw response: $response');
-      print('Customer data in response: ${response['customers']}');
+        print('Join query response: $response');
 
-      setState(() {
-        _currentVehicle = Vehicle.fromJson(response);
-      });
+        setState(() {
+          _currentVehicle = Vehicle.fromJson(response);
+        });
 
-      // Debug: Print parsed customer data
-      print('Parsed customer name: ${_currentVehicle.customerName}');
-      print('Parsed customer IC: ${_currentVehicle.customerIc}');
+        // If customer data is still null, try separate query
+        if (_currentVehicle.customerName == null && _currentVehicle.customerId != null) {
+          print('Join failed, trying separate query for customer_id: ${_currentVehicle.customerId}');
+          await _loadCustomerSeparately();
+        }
+
+      } catch (joinError) {
+        print('Join query failed: $joinError');
+
+        // Method 2: Load vehicle first, then customer separately
+        final vehicleResponse = await _supabase
+            .from('vehicles')
+            .select('*')
+            .eq('vehicle_id', _currentVehicle.id!)
+            .single();
+
+        print('Vehicle only response: $vehicleResponse');
+
+        setState(() {
+          _currentVehicle = Vehicle.fromJson(vehicleResponse);
+        });
+
+        // Load customer separately
+        if (_currentVehicle.customerId != null) {
+          await _loadCustomerSeparately();
+        }
+      }
+
+      // Debug: Print final parsed customer data
+      print('Final parsed customer name: ${_currentVehicle.customerName}');
+      print('Final parsed customer IC: ${_currentVehicle.customerIc}');
 
     } catch (e) {
       print('Error loading vehicle with customer: $e');
       _showErrorSnackBar('Failed to load vehicle details');
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadCustomerSeparately() async {
+    try {
+      final customerResponse = await _supabase
+          .from('customers')
+          .select('*')
+          .eq('customer_id', _currentVehicle.customerId!)
+          .single();
+
+      print('Separate customer query response: $customerResponse');
+
+      setState(() {
+        _currentVehicle = _currentVehicle.copyWith(
+          customerName: customerResponse['full_name'],
+          customerIc: customerResponse['ic_no'],
+          customerPhone: customerResponse['phone'],
+          customerEmail: customerResponse['email'],
+          customerGender: customerResponse['gender'],
+          customerAddress: customerResponse['address'],
+        );
+      });
+
+    } catch (e) {
+      print('Error loading customer separately: $e');
     }
   }
 
