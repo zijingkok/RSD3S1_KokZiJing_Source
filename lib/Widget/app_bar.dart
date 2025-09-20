@@ -4,13 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../Screen/login_page.dart';
 
 class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
-  final String title;
-  const AppTopBar({super.key, required this.title});
-
-
-
-
-  //-------------------------Sign out
+  final String? title;
+  const AppTopBar({super.key, this.title});
 
   Future<void> _signOut(BuildContext context) async {
     await Supabase.instance.client.auth.signOut();
@@ -23,21 +18,23 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Make the logo noticeably bigger; scale a bit on wide screens
+    final double logoH = MediaQuery.of(context).size.width >= 600 ? 44 : 36;
+
     return AppBar(
       backgroundColor: Colors.white,
+      foregroundColor: const Color(0xFF1D2A32),
       elevation: 0,
       centerTitle: false,
-      titleSpacing: 16,
+      titleSpacing: 12,
       title: Row(
         children: [
-
-          // clickable logo with dropdown
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'signout') _signOut(context);
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
+            itemBuilder: (context) => const [
+              PopupMenuItem(
                 value: 'signout',
                 child: Row(
                   children: [
@@ -48,16 +45,32 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
             ],
-            child: SizedBox(
-              height: 28,
-              child: Image.asset(
-                'assets/logo.png',
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Text(
-                  'godlike\nworkshop',
-                  style: TextStyle(fontSize: 12, color: Colors.black87),
+            tooltip: 'Menu',
+            child: Row(
+              children: [
+                // Bigger app logo
+                SizedBox(
+                  height: logoH,
+                  child: Image.asset(
+                    'assets/images/GodlikeLogo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.image_not_supported_outlined, size: 24),
+                  ),
                 ),
-              ),
+                if ((title ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  Text(
+                    title!.trim(),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1D2A32),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -69,8 +82,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
             onSelected: (value) {
               if (value == 'signout') _signOut(context);
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
+            itemBuilder: (context) => const [
+              PopupMenuItem(
                 value: 'signout',
                 child: Row(
                   children: [
@@ -81,14 +94,15 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
             ],
+            tooltip: 'Account',
             child: const CircleAvatar(
               radius: 16,
               backgroundColor: Color(0xFFE5E7EB),
+              child: Icon(Icons.person_outline, color: Color(0xFF6A7A88), size: 18),
             ),
           ),
         ),
       ],
-      foregroundColor: Colors.black,
     );
   }
 

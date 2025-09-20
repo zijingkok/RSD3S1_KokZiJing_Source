@@ -125,7 +125,7 @@ class _CrmDashboardState extends State<CrmDashboard> {
     return Theme(
       data: _localTheme(context),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Dashboard')),
+        appBar: AppBar(title: const Text('Customer Dashboard')),
         body: RefreshIndicator(
           onRefresh: _load,
           child: SingleChildScrollView(

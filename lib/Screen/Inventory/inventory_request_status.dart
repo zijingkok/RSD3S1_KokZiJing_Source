@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../Models/procurement_request_item.dart';
 import '../../services/procurement_service.dart';
 
@@ -10,40 +11,53 @@ class ProcurementRequestsScreen extends StatefulWidget {
   State<ProcurementRequestsScreen> createState() => _ProcurementRequestsScreenState();
 }
 
-enum ReqStatus { all, pending, approved,arrived}
+enum ReqStatus { all, pending, approved, arrived }
+
+const _ink = Color(0xFF1D2A32);
+const _muted = Color(0xFF6A7A88);
+const _chipBg = Color(0xFFF3F4F6);
+const _stroke = Color(0xFFB5B5B5);
 
 class _ProcurementRequestsScreenState extends State<ProcurementRequestsScreen> {
   ReqStatus _filter = ReqStatus.all;
   final _service = ProcurementService();
 
+  // Shared palette to match the rest of your app
+  static const _ink = Color(0xFF1D2A32);
+  static const _muted = Color(0xFF6A7A88);
+  static const _stroke = Color(0xFFB5B5B5);
+  static const _chipBg = Color(0xFFF3F4F6);
+
   @override
   Widget build(BuildContext context) {
-    const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
+    const border = BorderSide(width: 1, color: _stroke);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16 + kBottomNavigationBarHeight),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Back + Title
+              // Back + Title (same header pattern you used)
               Row(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => Navigator.maybePop(context),
+                    tooltip: 'Back',
                   ),
                   const SizedBox(width: 4),
                   const Text(
                     'Procurement Requests',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
 
-              // Filters
+              // Filter chips
               Wrap(
                 spacing: 10,
                 children: [
@@ -71,7 +85,7 @@ class _ProcurementRequestsScreenState extends State<ProcurementRequestsScreen> {
               ),
               const SizedBox(height: 12),
 
-              // List (realtime)
+              // Realtime list
               Expanded(
                 child: StreamBuilder<List<ProcurementRequest>>(
                   stream: _service.streamRequests(),
@@ -85,7 +99,6 @@ class _ProcurementRequestsScreenState extends State<ProcurementRequestsScreen> {
 
                     final all = snapshot.data ?? const <ProcurementRequest>[];
 
-                    // client-side filter by status
                     final items = all.where((r) {
                       switch (_filter) {
                         case ReqStatus.all:
@@ -95,7 +108,9 @@ class _ProcurementRequestsScreenState extends State<ProcurementRequestsScreen> {
                         case ReqStatus.approved:
                           return r.status.toLowerCase() == 'approved';
                         case ReqStatus.arrived:
-                          return r.status.toLowerCase() == 'arrived';
+                        // accept both "arrived" and "ordered" if your data used that earlier
+                          final s = r.status.toLowerCase();
+                          return s == 'arrived' || s == 'ordered';
                       }
                     }).toList()
                       ..sort((a, b) => b.requestDate.compareTo(a.requestDate));
@@ -119,7 +134,6 @@ class _ProcurementRequestsScreenState extends State<ProcurementRequestsScreen> {
                                 requestId: r.id,
                                 status: newStatus,
                               );
-                              // no manual refresh needed — stream will update UI
                             } catch (e) {
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -141,6 +155,8 @@ class _ProcurementRequestsScreenState extends State<ProcurementRequestsScreen> {
   }
 }
 
+/* --------------------------------- UI bits --------------------------------- */
+
 class _FilterPill extends StatelessWidget {
   final String label;
   final bool selected;
@@ -153,33 +169,35 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selBg = Colors.black87;
-    final selFg = Colors.white;
-    final unSelBg = const Color(0xFFF3F4F6);
-    final unSelFg = Colors.black87;
+    const selBg = _ProcurementRequestsScreenState._ink;
+    const selFg = Colors.white;
+    const unSelBg = _ProcurementRequestsScreenState._chipBg;
+    const unSelFg = _ProcurementRequestsScreenState._ink;
+    const stroke = _ProcurementRequestsScreenState._stroke;
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(999),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? selBg : unSelBg,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: selected ? selBg : const Color(0xFFB5B5B5)),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: selected ? selBg : stroke),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 14,
             color: selected ? selFg : unSelFg,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
     );
   }
 }
+
 
 class _RequestCard extends StatelessWidget {
   final ProcurementRequest req;
@@ -208,45 +226,67 @@ class _RequestCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top row: ID + status badge
+            // Top row: ID + status + menu
             Row(
               children: [
                 Expanded(
                   child: Text(
                     'Request ID: ${req.id.substring(0, 8)}',
                     style: const TextStyle(
-                      fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: _ink,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
                 _StatusBadge(statusText: req.status),
+                const SizedBox(width: 4),
+                PopupMenuButton<String>(
+                  tooltip: 'Update status',
+                  onSelected: (v) => onStatusChange(v),
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'Pending', child: Text('Mark as Pending')),
+                    PopupMenuItem(value: 'Approved', child: Text('Mark as Approved')),
+                    PopupMenuItem(value: 'Arrived', child: Text('Mark as Arrived')),
+                  ],
+                  child: const Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: Icon(Icons.more_horiz, color: _ink),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
 
-            Text(req.partName ?? 'Unknown Part',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(
+              req.partName ?? 'Unknown Part',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _ink),
+            ),
             const SizedBox(height: 6),
 
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Qty + date (stack)
+                // Qty + date
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Qty: ${req.quantity} Units',
-                        style: const TextStyle(fontSize: 14, color: Colors.black87)),
+                    Text(
+                      'Qty: ${req.quantity} Units',
+                      style: const TextStyle(fontSize: 14, color: _ink),
+                    ),
                     const SizedBox(height: 4),
-                    Text(df.format(req.requestDate),
-                        style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    Text(
+                      df.format(req.requestDate),
+                      style: const TextStyle(fontSize: 12, color: _muted),
+                    ),
                   ],
                 ),
                 const Spacer(),
-                Text(req.highPriority ? 'High Priority' : req.priority,
-                    style: const TextStyle(
-                      fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w600,
-                    )),
+                Text(
+                  req.highPriority ? 'Urgent' : (req.priority.isEmpty ? 'Normal' : req.priority),
+                  style: const TextStyle(fontSize: 13, color: _ink, fontWeight: FontWeight.w700),
+                ),
               ],
             ),
           ],
@@ -257,38 +297,55 @@ class _RequestCard extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  final String statusText; // 'Pending' | 'Approved' | 'Ordered'
+  final String statusText; // pending / approved / arrived
   const _StatusBadge({required this.statusText});
 
   @override
   Widget build(BuildContext context) {
     final s = statusText.toLowerCase();
     late final String label;
-    late final Color color;
+    late final Color textColor;
+    late final Color bgColor;
+    late final Color borderColor;
 
+    // Muted pill style to match the rest of your chips
     if (s == 'pending') {
       label = 'Pending';
-      color = const Color(0xFF7C3AED); // purple
+      textColor = const Color(0xFF92400E);
+      bgColor = const Color(0xFFFFF7ED);
+      borderColor = const Color(0xFFF3D9C2);
     } else if (s == 'approved') {
       label = 'Approved';
-      color = const Color(0xFF16A34A); // green
-    } else if (s == 'ordered') {
-      label = 'Ordered';
-      color = const Color(0xFF2563EB); // blue
+      textColor = const Color(0xFF065F46);
+      bgColor = const Color(0xFFECFDF5);
+      borderColor = const Color(0xFFB7F0DA);
+    } else if (s == 'arrived' || s == 'ordered') {
+      label = 'Arrived';
+      textColor = const Color(0xFF1D4ED8);
+      bgColor = const Color(0xFFEFF6FF);
+      borderColor = const Color(0xFFBFDBFE);
     } else {
       label = statusText;
-      color = const Color(0xFF9CA3AF);
+      textColor = const Color(0xFF374151);
+      bgColor = const Color(0xFFF3F4F6);
+      borderColor = const Color(0xFFE5E7EB);
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: borderColor),
       ),
       child: Text(
         label,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.w700,
+          fontSize: 12.5,
+          letterSpacing: .2,
+        ),
       ),
     );
   }
