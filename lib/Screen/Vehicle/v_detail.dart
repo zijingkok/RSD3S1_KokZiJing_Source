@@ -31,10 +31,10 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Debug: Print the vehicle ID we're looking for
+
       print('Looking for vehicle with ID: ${_currentVehicle.id}');
 
-      // Try method 1: Join query
+
       try {
         final response = await _supabase
             .from('vehicles')
@@ -59,7 +59,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
           _currentVehicle = Vehicle.fromJson(response);
         });
 
-        // If customer data is still null, try separate query
+
         if (_currentVehicle.customerName == null && _currentVehicle.customerId != null) {
           print('Join failed, trying separate query for customer_id: ${_currentVehicle.customerId}');
           await _loadCustomerSeparately();
@@ -68,7 +68,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
       } catch (joinError) {
         print('Join query failed: $joinError');
 
-        // Method 2: Load vehicle first, then customer separately
+
         final vehicleResponse = await _supabase
             .from('vehicles')
             .select('*')
@@ -81,13 +81,13 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
           _currentVehicle = Vehicle.fromJson(vehicleResponse);
         });
 
-        // Load customer separately
+
         if (_currentVehicle.customerId != null) {
           await _loadCustomerSeparately();
         }
       }
 
-      // Debug: Print final parsed customer data
+
       print('Final parsed customer name: ${_currentVehicle.customerName}');
       print('Final parsed customer IC: ${_currentVehicle.customerIc}');
 
@@ -126,34 +126,69 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
   }
 
   Future<void> _loadServiceHistory() async {
-    setState(() => _isLoading = true);
-
     try {
-      // For now, we'll use dummy data since work_orders table is not implemented yet
-      // This is where you would load from work_orders table when ready
-      _serviceHistory = [
-        {
-          'title': 'Alignment Service',
-          'status': 'In-progress',
-          'date': null,
-        },
-        {
-          'title': 'Brake Pad Service',
-          'status': 'Completed',
-          'date': '28 Sept 2023',
-        },
-        {
-          'title': 'Oil Changing Service',
-          'status': 'Completed',
-          'date': '11 Aug 2022',
-        },
-      ];
+      // Load work orders for this vehicle
+      final workOrdersResponse = await _supabase
+          .from('work_orders')
+          .select('title, status, created_at')
+          .eq('vehicle_id', _currentVehicle.id!)
+          .order('created_at', ascending: false);
+
+      print('Work orders response: $workOrdersResponse');
+
+      _serviceHistory = (workOrdersResponse as List).map((workOrder) {
+        // Format the created_at date
+        String? formattedDate;
+        if (workOrder['created_at'] != null) {
+          try {
+            final DateTime createdAt = DateTime.parse(workOrder['created_at']);
+            formattedDate = "${createdAt.day} ${_getMonthName(createdAt.month)} ${createdAt.year}";
+          } catch (e) {
+            print('Error parsing date: $e');
+          }
+        }
+
+        return {
+          'title': workOrder['title'] ?? 'Unknown Service',
+          'status': _getFormattedStatus(workOrder['status'] ?? 'Unknown'),
+          'date': formattedDate,
+        };
+      }).toList();
+
+      print('Formatted service history: $_serviceHistory');
 
     } catch (e) {
       print('Error loading service history: $e');
-    } finally {
-      setState(() => _isLoading = false);
+      // If there's an error, set empty list
+      _serviceHistory = [];
     }
+  }
+
+  String _getFormattedStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'unassigned':
+        return 'Unassigned';
+      case 'assigned':
+        return 'Assigned';
+      case 'in-progress':
+        return 'In Progress';
+      case 'completed':
+        return 'Completed';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'on-hold':
+        return 'On Hold';
+      default:
+        return status;
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month];
   }
 
   Future<void> _refreshVehicleData() async {
@@ -685,6 +720,27 @@ class _ServiceCard extends StatelessWidget {
     required this.border,
   });
 
+  Color _getServiceStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return Colors.green;
+      case 'in progress':
+      case 'in-progress':
+        return Colors.orange;
+      case 'assigned':
+        return Colors.blue;
+      case 'unassigned':
+        return Colors.grey;
+      case 'cancelled':
+        return Colors.red;
+      case 'on hold':
+      case 'on-hold':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -714,14 +770,25 @@ class _ServiceCard extends StatelessWidget {
                 ],
               ),
             ),
-            Text(status,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _getServiceStatusColor(status).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _getServiceStatusColor(status),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                status,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: status == "Completed"
-                      ? Colors.green
-                      : Colors.orange,
-                )),
+                  color: _getServiceStatusColor(status),
+                ),
+              ),
+            ),
           ],
         ),
       ),
