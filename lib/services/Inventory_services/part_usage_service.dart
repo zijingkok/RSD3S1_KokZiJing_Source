@@ -1,6 +1,6 @@
 // services/part_usage_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../Models/part_usage_event.dart';
+import '../../Models/Inventory_models/part_usage_event.dart';
 
 class PartUsageService {
   final SupabaseClient _client;

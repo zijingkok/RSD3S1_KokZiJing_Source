@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import '../../Models/parts.dart';
-import '../../services/inventory_service.dart';
+
+import '../../Models/Inventory_models/parts.dart';
+import '../../services/Inventory_services/inventory_service.dart';
 
 class InventoryListScreen extends StatefulWidget {
   const InventoryListScreen({super.key});
@@ -13,6 +14,15 @@ class InventoryListScreen extends StatefulWidget {
 enum StockFilter { all, inStock, lowStock }
 
 class _InventoryListScreenState extends State<InventoryListScreen> {
+  // ---- Shared palette (match other modules) ----
+  static const _bg = Color(0xFFF5F7FA);
+  static const _ink = Color(0xFF1D2A32);
+  static const _muted = Color(0xFF6A7A88);
+  static const _card = Colors.white;
+  static const _stroke = Color(0xFFE6ECF1);
+  static const _primary = Color(0xFF1E88E5);
+  static const _primaryDark = Color(0xFF1565C0);
+
   final TextEditingController _search = TextEditingController();
   StockFilter _filter = StockFilter.all;
   final _inventoryService = InventoryService();
@@ -24,6 +34,43 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
   void initState() {
     super.initState();
     _loadParts();
+  }
+
+  ThemeData _localTheme(BuildContext context) {
+
+    final base = Theme.of(context);
+    final tuned = base.textTheme
+        .copyWith(
+      titleLarge: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(height: 1.3),
+      labelLarge: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+    )
+        .apply(bodyColor: _ink, displayColor: _ink);
+    return base.copyWith(
+      useMaterial3: true,
+      scaffoldBackgroundColor: _bg,
+      textTheme: tuned,
+      colorScheme: base.colorScheme.copyWith(primary: _primary, secondary: _primary),
+      dividerColor: _stroke,
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        hintStyle: const TextStyle(color: _muted),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _stroke),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _stroke),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _primary, width: 1.5),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadParts() async {
@@ -39,30 +86,22 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
     }
   }
 
-  // 🔹 Open scanner and filter by scanned code
+  // Open scanner and filter by scanned code
   Future<void> _scanAndFilter() async {
     final code = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const _BarcodeScannerPage()),
     );
-
     if (code == null || code.isEmpty) return;
-
-    // Fill search with the scanned code and refresh results.
-    // Here we assume your barcode equals Part.number; adjust if you store a separate barcode field.
     _search.text = code;
     setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    const border = BorderSide(width: 1, color: Color(0xFFB5B5B5));
-
     final filtered = _items.where((e) {
       final q = _search.text.trim().toLowerCase();
       final matchesQuery =
-          q.isEmpty ||
-              e.name.toLowerCase().contains(q) ||
-              e.number.toLowerCase().contains(q); // <- match on number (barcode)
+          q.isEmpty || e.name.toLowerCase().contains(q) || e.number.toLowerCase().contains(q);
       final matchesFilter = switch (_filter) {
         StockFilter.all => true,
         StockFilter.inStock => !e.lowStock,
@@ -71,97 +110,170 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
       return matchesQuery && matchesFilter;
     }).toList();
 
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadParts,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16 + kBottomNavigationBarHeight),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.maybePop(context),
+    return Theme(
+      data: _localTheme(context),
+      child: RefreshIndicator(
+        onRefresh: _loadParts,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16 + kBottomNavigationBarHeight),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header panel
+              // Back button row (only if we can pop)
+              if (Navigator.of(context).canPop()) ...[
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.maybePop(context),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                 ),
-                const SizedBox(width: 4),
-                const Text('Inventory List',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
               ],
-            ),
-            const SizedBox(height: 12),
 
-            // Search bar
-            TextField(
-              controller: _search,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: 'Search by part name or number...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: _card,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: _stroke),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x0F000000), blurRadius: 22, offset: Offset(0, 10)),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF90CAF9), Color(0xFF1E88E5)],
+                          ),
+                        ),
+                        child: const Icon(Icons.view_list_outlined, color: Colors.white),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Inventory List',
+                                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                            SizedBox(height: 2),
+                            Text('Search, filter, and scan parts',
+                                style: TextStyle(fontSize: 14, color: _muted, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 14),
 
-            // 🔹 Scan barcode button (below search bar)
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.qr_code_scanner),
-                label: const Text('Scan barcode'),
-                onPressed: _scanAndFilter,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  side: const BorderSide(color: Color(0xFFB5B5B5)),
-                  foregroundColor: Colors.black87,
+              // Search
+              TextField(
+                controller: _search,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search by part name or number...',
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
-            // Filter pills
-            Wrap(
-              spacing: 10,
-              children: [
-                _FilterPill(
-                  label: 'All',
-                  selected: _filter == StockFilter.all,
-                  onTap: () => setState(() => _filter = StockFilter.all),
+              // Scan barcode button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('Scan barcode'),
+                  onPressed: _scanAndFilter,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    side: const BorderSide(color: _stroke),
+                    foregroundColor: _ink,
+                  ),
                 ),
-                _FilterPill(
-                  label: 'In Stock',
-                  selected: _filter == StockFilter.inStock,
-                  onTap: () => setState(() => _filter = StockFilter.inStock),
-                ),
-                _FilterPill(
-                  label: 'Low Stock',
-                  selected: _filter == StockFilter.lowStock,
-                  onTap: () => setState(() => _filter = StockFilter.lowStock),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // List
-            for (final item in filtered) ...[
-              _InventoryCard(item: item, border: border),
+              ),
               const SizedBox(height: 12),
+
+              // Filter pills
+              Wrap(
+                spacing: 10,
+                children: [
+                  _FilterPill(
+                    label: 'All',
+                    selected: _filter == StockFilter.all,
+                    onTap: () => setState(() => _filter = StockFilter.all),
+                  ),
+                  _FilterPill(
+                    label: 'In Stock',
+                    selected: _filter == StockFilter.inStock,
+                    onTap: () => setState(() => _filter = StockFilter.inStock),
+                  ),
+                  _FilterPill(
+                    label: 'Low Stock',
+                    selected: _filter == StockFilter.lowStock,
+                    onTap: () => setState(() => _filter = StockFilter.lowStock),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (filtered.isEmpty)
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: _card,
+                    border: Border.all(color: _stroke),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                  child: const Column(
+                    children: [
+                      Icon(Icons.inbox_outlined, color: _muted, size: 40),
+                      SizedBox(height: 8),
+                      Text('No parts found',
+                          style: TextStyle(fontWeight: FontWeight.w700, color: _ink)),
+                      SizedBox(height: 2),
+                      Text('Try a different search or filter', style: TextStyle(color: _muted)),
+                    ],
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) => _InventoryCard(item: filtered[i]),
+                ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
+
+/* ---------- Scanner page (kept simple; styled app bar) ---------- */
 
 class _BarcodeScannerPage extends StatefulWidget {
   const _BarcodeScannerPage({super.key});
@@ -186,13 +298,10 @@ class _BarcodeScannerPageState extends State<_BarcodeScannerPage> {
 
   void _onDetect(BarcodeCapture capture) {
     if (_handled) return;
-
     final codes = capture.barcodes;
     if (codes.isEmpty) return;
-
     final value = codes.first.rawValue ?? '';
     if (value.isEmpty) return;
-
     _handled = true;
     Navigator.of(context).pop(value);
   }
@@ -213,15 +322,12 @@ class _BarcodeScannerPageState extends State<_BarcodeScannerPage> {
           ),
         ],
       ),
-      body: MobileScanner(
-        controller: _controller,
-        onDetect: _onDetect,
-      ),
+      body: MobileScanner(controller: _controller, onDetect: _onDetect),
     );
   }
 }
 
-
+/* ---------- UI bits ---------- */
 
 class _FilterPill extends StatelessWidget {
   final String label;
@@ -236,27 +342,27 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selBg = Colors.black87;
-    final selFg = Colors.white;
-    final unSelBg = const Color(0xFFF3F4F6);
-    final unSelFg = Colors.black87;
+    const selBg = _InventoryListScreenState._ink;
+    const selFg = Colors.white;
+    const unSelBg = Color(0xFFF3F4F6);
+    const unSelFg = _InventoryListScreenState._ink;
+    const stroke = _InventoryListScreenState._stroke;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? selBg : unSelBg,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: selected ? selBg : const Color(0xFFB5B5B5)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            color: selected ? selFg : unSelFg,
-            fontWeight: FontWeight.w600,
+    return Material(
+      color: selected ? selBg : unSelBg,
+      shape: StadiumBorder(side: BorderSide(color: selected ? selBg : stroke)),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: selected ? selFg : unSelFg,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),
@@ -266,119 +372,151 @@ class _FilterPill extends StatelessWidget {
 
 class _InventoryCard extends StatelessWidget {
   final Part item;
-  final BorderSide border;
+  const _InventoryCard({required this.item});
 
-  const _InventoryCard({required this.item, required this.border});
+  static const _stroke = _InventoryListScreenState._stroke;
+  static const _ink = _InventoryListScreenState._ink;
+  static const _muted = _InventoryListScreenState._muted;
+  static const _primary = _InventoryListScreenState._primary;
+  static const _primaryDark = _InventoryListScreenState._primaryDark;
 
   @override
   Widget build(BuildContext context) {
-    final dotColor = item.lowStock
-        ? const Color(0xFFDC2626) // red = low stock
-        : const Color(0xFF9CA3AF); // grey = ok
+    final dotColor = item.lowStock ? const Color(0xFFDC2626) : const Color(0xFF9CA3AF);
 
-    return Card(
-      shape: RoundedRectangleBorder(
-        side: border,
-        borderRadius: BorderRadius.circular(12),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _stroke),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Part name + status dot
-            Row(
-              children: [
-                Expanded(
-                  child: Text(item.name,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w700)),
-                ),
-                Icon(Icons.circle, size: 10, color: dotColor),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text("Part #: ${item.number}",
-                style: const TextStyle(fontSize: 12, color: Colors.black54)),
-            const SizedBox(height: 8),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title row
+          Row(
+            children: [
+              Expanded(
+                child: Text(item.name,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _ink)),
+              ),
+              Icon(Icons.circle, size: 10, color: dotColor),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('Part #: ${item.number}', style: const TextStyle(fontSize: 12.5, color: _muted)),
+          const SizedBox(height: 8),
 
-            // Stock + location
-            Row(
-              children: [
-                Text('Stock: ${item.stockQuantity}',
-                    style: const TextStyle(fontSize: 14)),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(item.location,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+          // Stock + location
+          Row(
+            children: [
+              Text('Stock: ${item.stockQuantity}', style: const TextStyle(fontSize: 14, color: _ink)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(item.location,
+                    overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, color: _ink)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
 
-            // 🔹 Buttons row
-            Row(
-              children: [
-                // Usage History button
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.show_chart, size: 18),
-                    label: const Text('Usage History'),
-                    onPressed: () {
-                      Navigator.of(context).pushNamed(
-                        '/usage',
-                        arguments: item, // pass the part to usage page
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      side: BorderSide(color: border.color),
-                      foregroundColor: Colors.black87,
-                    ),
+          // Buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.show_chart, size: 18),
+                  label: const Text('Usage History'),
+                  onPressed: () {
+                    Navigator.of(context).pushNamed('/usage', arguments: item);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: _stroke),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    foregroundColor: _ink,
                   ),
                 ),
-                const SizedBox(width: 12),
-
-                // Request More button
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Request More'),
-
-
-
-                    // In your parts list screen
-                    onPressed: () {
-                      Navigator.of(context).pushNamed(
-                        '/request',
-                        arguments: {
-                          'source': 'parts',
-                          'part': item,               // Part
-                          'location': item.location,  // optional
-                        },
-                      );
-                    },
-
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      backgroundColor: Colors.black87,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 0,
-                    ),
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _PrimaryButton.icon(
+                  icon: Icons.add,
+                  label: 'Add Stock',
+                  onPressed: () {
+                    Navigator.of(context).pushNamed('/request', arguments: {
+                      'source': 'parts',
+                      'part': item,
+                      'location': item.location,
+                    });
+                  },
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* ---------- Shared primary gradient button ---------- */
+
+class _PrimaryButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final String label;
+  final IconData? icon;
+  const _PrimaryButton({required this.onPressed, required this.label}) : icon = null;
+  const _PrimaryButton.icon({required this.onPressed, required this.label, required this.icon});
+
+  static const _primary = _InventoryListScreenState._primary;
+  static const _primaryDark = _InventoryListScreenState._primaryDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 18, color: Colors.white),
+          const SizedBox(width: 8),
+        ],
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          colors: [_primary, _primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: const [
+          BoxShadow(color: Color(0x22000000), blurRadius: 12, offset: Offset(0, 6)),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: child), // <-- show label & icon
+          ),
         ),
       ),
     );
   }
 }
+

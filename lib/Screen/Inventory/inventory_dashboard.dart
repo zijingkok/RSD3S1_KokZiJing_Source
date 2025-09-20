@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../Models/inventory_summary.dart' ;
-import '../../services/inventory_service.dart' ;
+import '../../Models/Inventory_models/inventory_summary.dart';
+import '../../services/Inventory_services/inventory_service.dart';
 
 class InventoryDashboard extends StatefulWidget {
   const InventoryDashboard({super.key});

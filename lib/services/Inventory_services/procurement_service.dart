@@ -1,6 +1,6 @@
 // services/procurement_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../Models/procurement_request_item.dart';
+import '../../Models/Inventory_models/procurement_request_item.dart';
 
 class ProcurementService {
   final SupabaseClient _client;

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../Models/parts.dart';
 import 'inventory_dashboard.dart';
 import 'inventory_list.dart';
 import 'inventory_part_usage.dart';
