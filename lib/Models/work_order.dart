@@ -1,29 +1,96 @@
 // models/work_order.dart
+import 'mechanic.dart';
+
+enum WorkOrderStatus { unassigned, accepted, inProgress, onHold, completed }
+enum WorkOrderPriority { low, normal, high, urgent }
+
+WorkOrderStatus _statusFromString(String? s) {
+  switch ((s ?? '').toLowerCase()) {
+    case 'accepted': return WorkOrderStatus.accepted;
+    case 'in_progress':
+    case 'inprogress': return WorkOrderStatus.inProgress;
+    case 'on_hold':
+    case 'onhold': return WorkOrderStatus.onHold;
+    case 'completed': return WorkOrderStatus.completed;
+    default: return WorkOrderStatus.unassigned;
+  }
+}
+
+String statusToString(WorkOrderStatus s) {
+  switch (s) {
+    case WorkOrderStatus.accepted: return 'accepted';
+    case WorkOrderStatus.inProgress: return 'in_progress';
+    case WorkOrderStatus.onHold: return 'on_hold';
+    case WorkOrderStatus.completed: return 'completed';
+    case WorkOrderStatus.unassigned: return 'unassigned';
+  }
+}
+
+WorkOrderPriority _priorityFromString(String? s) {
+  switch ((s ?? 'normal').toLowerCase()) {
+    case 'low': return WorkOrderPriority.low;
+    case 'high': return WorkOrderPriority.high;
+    case 'urgent': return WorkOrderPriority.urgent;
+    default: return WorkOrderPriority.normal;
+  }
+}
+
+String _priorityToString(WorkOrderPriority p) {
+  switch (p) {
+    case WorkOrderPriority.low: return 'low';
+    case WorkOrderPriority.normal: return 'normal';
+    case WorkOrderPriority.high: return 'high';
+    case WorkOrderPriority.urgent: return 'urgent';
+  }
+}
+
+/// Utility: Supabase `time` (e.g. "10:30:00") -> Duration from midnight.
+Duration? _parsePgTime(String? hhmmss) {
+  if (hhmmss == null || hhmmss.isEmpty) return null;
+  final parts = hhmmss.split(':');
+  if (parts.length < 2) return null;
+  final h = int.tryParse(parts[0]) ?? 0;
+  final m = int.tryParse(parts[1]) ?? 0;
+  final s = parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0;
+  return Duration(hours: h, minutes: m, seconds: s);
+}
+
+DateTime? _parseTs(dynamic v) => v == null ? null : DateTime.parse(v.toString());
+DateTime? _parseDate(dynamic v) => v == null ? null : DateTime.parse(v.toString());
+
 class WorkOrder {
-  final String? id;
-  final String code;
-  final String vehicleId;
-  final String customerId;
-  final String title;
-  final String status;
-  final String priority;
-  final DateTime? scheduledDate;
-  final String? scheduledTime;
-  final double? estimatedHours;
-  final String? assignedMechanicId;
-  final String? notes;
-  final String? serviceId;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  final String workOrderId;         // uuid
+  final String code;                // text
+  final String? vehicleId;          // uuid
+  final String? customerId;         // uuid
+  final String title;               // text
+  final WorkOrderStatus status;     // text
+  final WorkOrderPriority priority; // text
+  final DateTime? scheduledDate;    // date
+  final Duration? scheduledTime;    // time (HH:mm:ss)
+  final double? estimatedHours;     // numeric
+  final String? assignedMechanicId; // uuid
+  final String? notes;              // text
+  final String? serviceId;          // uuid
+  final DateTime? createdAt;        // timestamptz
+  final DateTime? updatedAt;        // timestamptz
+
+  /// Convenience: combine scheduledDate + scheduledTime -> DateTime
+  DateTime? get scheduledStart {
+    if (scheduledDate == null) return null;
+    final base = DateTime(scheduledDate!.year, scheduledDate!.month, scheduledDate!.day);
+    if (scheduledTime == null) return base;
+    return base.add(scheduledTime!);
+  }
 
   WorkOrder({
-    this.id,
+    required this.workOrderId,
     required this.code,
-    required this.vehicleId,
-    required this.customerId,
     required this.title,
-    required this.status,
-    required this.priority,
+    this.vehicleId,
+    this.customerId,
+    this.status = WorkOrderStatus.unassigned,
+    this.priority = WorkOrderPriority.normal,
     this.scheduledDate,
     this.scheduledTime,
     this.estimatedHours,
@@ -34,156 +101,49 @@ class WorkOrder {
     this.updatedAt,
   });
 
-  // Convert from JSON (Supabase response)
-  factory WorkOrder.fromJson(Map<String, dynamic> json) {
+
+
+  factory WorkOrder.fromMap(Map<String, dynamic> m) {
     return WorkOrder(
-      id: json['work_order_id'],
-      code: json['code'] ?? '',
-      vehicleId: json['vehicle_id'] ?? '',
-      customerId: json['customer_id'] ?? '',
-      title: json['title'] ?? '',
-      status: json['status'] ?? 'Unassigned',
-      priority: json['priority'] ?? 'Normal',
-      scheduledDate: json['scheduled_date'] != null
-          ? DateTime.parse(json['scheduled_date'])
-          : null,
-      scheduledTime: json['scheduled_time'],
-      estimatedHours: json['estimated_hours']?.toDouble(),
-      assignedMechanicId: json['assigned_mechanic_id'],
-      notes: json['notes'],
-      serviceId: json['service_id'],
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : null,
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
-          : null,
+      workOrderId: (m['work_order_id'] ?? m['id']).toString(),
+      code: (m['code'] ?? '').toString(),
+      vehicleId: m['vehicle_id']?.toString(),
+      customerId: m['customer_id']?.toString(),
+      title: (m['title'] ?? '').toString(),
+      status: _statusFromString(m['status']?.toString()),
+      priority: _priorityFromString(m['priority']?.toString()),
+      scheduledDate: _parseDate(m['scheduled_date']),
+      scheduledTime: _parsePgTime(m['scheduled_time']?.toString()),
+      estimatedHours: m['estimated_hours'] == null ? null : double.tryParse(m['estimated_hours'].toString()),
+      assignedMechanicId: m['assigned_mechanic_id']?.toString(),
+      notes: m['notes']?.toString(),
+      serviceId: m['service_id']?.toString(),
+      createdAt: _parseTs(m['created_at']),
+      updatedAt: _parseTs(m['updated_at']),
     );
   }
 
-  // Convert to JSON (for Supabase insert/update)
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toMap() {
+    // NOTE: we persist the canonical DB column names to match your schema.
     return {
-      if (id != null) 'work_order_id': id,
+      'work_order_id': workOrderId,
       'code': code,
       'vehicle_id': vehicleId,
       'customer_id': customerId,
       'title': title,
-      'status': status,
-      'priority': priority,
-      'scheduled_date': scheduledDate?.toIso8601String().split('T')[0],
-      'scheduled_time': scheduledTime,
-      'estimated_hours': estimatedHours,
-      'assigned_mechanic_id': assignedMechanicId,
-      'notes': notes,
-      'service_id': serviceId,
-      if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
-      if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
-    };
-  }
-
-  // For insert operations (without id, created_at, updated_at)
-  Map<String, dynamic> toInsertJson() {
-    return {
-      'code': code,
-      'vehicle_id': vehicleId,
-      'customer_id': customerId,
-      'title': title,
-      'status': status,
-      'priority': priority,
-      'scheduled_date': scheduledDate?.toIso8601String().split('T')[0],
-      'scheduled_time': scheduledTime,
+      'status': statusToString(status),
+      'priority': _priorityToString(priority),
+      'scheduled_date': scheduledDate?.toIso8601String(),
+      // Postgres `time` expects "HH:MM:SS" string; keep this null to avoid bad casts.
+      'scheduled_time': scheduledTime == null
+          ? null
+          : '${scheduledTime!.inHours.toString().padLeft(2, '0')}:'
+          '${(scheduledTime!.inMinutes % 60).toString().padLeft(2, '0')}:'
+          '${(scheduledTime!.inSeconds % 60).toString().padLeft(2, '0')}',
       'estimated_hours': estimatedHours,
       'assigned_mechanic_id': assignedMechanicId,
       'notes': notes,
       'service_id': serviceId,
     };
   }
-
-  // Create copy with updated fields
-  WorkOrder copyWith({
-    String? id,
-    String? code,
-    String? vehicleId,
-    String? customerId,
-    String? title,
-    String? status,
-    String? priority,
-    DateTime? scheduledDate,
-    String? scheduledTime,
-    double? estimatedHours,
-    String? assignedMechanicId,
-    String? notes,
-    String? serviceId,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return WorkOrder(
-      id: id ?? this.id,
-      code: code ?? this.code,
-      vehicleId: vehicleId ?? this.vehicleId,
-      customerId: customerId ?? this.customerId,
-      title: title ?? this.title,
-      status: status ?? this.status,
-      priority: priority ?? this.priority,
-      scheduledDate: scheduledDate ?? this.scheduledDate,
-      scheduledTime: scheduledTime ?? this.scheduledTime,
-      estimatedHours: estimatedHours ?? this.estimatedHours,
-      assignedMechanicId: assignedMechanicId ?? this.assignedMechanicId,
-      notes: notes ?? this.notes,
-      serviceId: serviceId ?? this.serviceId,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  // Get formatted status display text
-  String get statusDisplay {
-    switch (status.toLowerCase()) {
-      case 'unassigned':
-        return 'Unassigned';
-      case 'assigned':
-        return 'Assigned';
-      case 'in-progress':
-        return 'In Progress';
-      case 'completed':
-        return 'Completed';
-      case 'cancelled':
-        return 'Cancelled';
-      case 'on-hold':
-        return 'On Hold';
-      default:
-        return status;
-    }
-  }
-
-  // Get formatted priority display text
-  String get priorityDisplay {
-    switch (priority.toLowerCase()) {
-      case 'low':
-        return 'Low';
-      case 'normal':
-        return 'Normal';
-      case 'high':
-        return 'High';
-      case 'urgent':
-        return 'Urgent';
-      default:
-        return priority;
-    }
-  }
-
-  @override
-  String toString() {
-    return 'WorkOrder(id: $id, code: $code, title: $title, status: $status)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is WorkOrder && other.id == id;
-  }
-
-  @override
-  int get hashCode => id.hashCode;
 }

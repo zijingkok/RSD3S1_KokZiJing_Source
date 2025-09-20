@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import ' job_task_tab.dart';
+import 'job_task_tab.dart';
 import 'job_workload_tab.dart';
 
 class JobModule extends StatelessWidget {
@@ -11,10 +11,10 @@ class JobModule extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Work Scheduler'),
+          title: const Text('Work Orders'),
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'Task'),
+              Tab(text: 'Tasks'),
               Tab(text: 'Workload'),
             ],
           ),
@@ -26,11 +26,11 @@ class JobModule extends StatelessWidget {
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
-          onPressed: () {
-            // optional: open Create/Assign Job flow
+          onPressed: () async {
+            // optional quick-create flow; for now assignment happens per row menu
           },
           icon: const Icon(Icons.add),
-          label: const Text('Assign Job'),
+          label: const Text('Assign'),
         ),
       ),
     );
