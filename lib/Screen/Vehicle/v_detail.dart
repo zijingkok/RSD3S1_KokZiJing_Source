@@ -16,13 +16,60 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
   final _supabase = Supabase.instance.client;
   late Vehicle _currentVehicle;
   bool _isLoading = false;
+  bool _isCustomerDetailsExpanded = false;
   List<Map<String, dynamic>> _serviceHistory = [];
 
   @override
   void initState() {
     super.initState();
     _currentVehicle = widget.vehicle;
+    _loadVehicleWithCustomer();
     _loadServiceHistory();
+  }
+
+  Future<void> _loadVehicleWithCustomer() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Debug: Print the vehicle ID we're looking for
+      print('Looking for vehicle with ID: ${_currentVehicle.id}');
+
+      // Fetch vehicle with customer data using proper join
+      final response = await _supabase
+          .from('vehicles')
+          .select('''
+            *,
+            customers (
+              customer_id,
+              full_name,
+              ic_no,
+              phone,
+              email,
+              gender,
+              address
+            )
+          ''')
+          .eq('vehicle_id', _currentVehicle.id!)
+          .single();
+
+      // Debug: Print the raw response
+      print('Raw response: $response');
+      print('Customer data in response: ${response['customers']}');
+
+      setState(() {
+        _currentVehicle = Vehicle.fromJson(response);
+      });
+
+      // Debug: Print parsed customer data
+      print('Parsed customer name: ${_currentVehicle.customerName}');
+      print('Parsed customer IC: ${_currentVehicle.customerIc}');
+
+    } catch (e) {
+      print('Error loading vehicle with customer: $e');
+      _showErrorSnackBar('Failed to load vehicle details');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _loadServiceHistory() async {
@@ -60,8 +107,19 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
     try {
       final response = await _supabase
           .from('vehicles')
-          .select()
-          .eq('id', _currentVehicle.id!)
+          .select('''
+            *,
+            customers (
+              customer_id,
+              full_name,
+              ic_no,
+              phone,
+              email,
+              gender,
+              address
+            )
+          ''')
+          .eq('vehicle_id', _currentVehicle.id!)
           .single();
 
       setState(() {
@@ -101,7 +159,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
         await _supabase
             .from('vehicles')
             .delete()
-            .eq('id', _currentVehicle.id!);
+            .eq('vehicle_id', _currentVehicle.id!);
 
         _showSuccessSnackBar('Vehicle deleted successfully');
         Navigator.pop(context, true); // Return to previous page
@@ -214,7 +272,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ðŸš— Vehicle Image
+            // Vehicle Image
             Center(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
@@ -265,7 +323,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
             ),
             const SizedBox(height: 20),
 
-            // ðŸ“Š Mileage & Year Cards
+            // Mileage & Year Cards
             Row(
               children: [
                 Expanded(
@@ -285,7 +343,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
             ),
             const SizedBox(height: 20),
 
-            // ðŸ‘¤ Vehicle Details
+            // Vehicle Details
             const Text(
               "Vehicle Details",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -317,10 +375,6 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
                     ],
                     _DetailRow(label: "VIN", value: _currentVehicle.vin),
                     const SizedBox(height: 8),
-                    if (_currentVehicle.customerIc != null && _currentVehicle.customerIc!.isNotEmpty) ...[
-                      _DetailRow(label: "Owner IC", value: _currentVehicle.customerIc!),
-                      const SizedBox(height: 8),
-                    ],
                     _DetailRow(label: "Status", value: _getStatusDisplayText(_currentVehicle.status)),
                   ],
                 ),
@@ -328,7 +382,122 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
             ),
             const SizedBox(height: 20),
 
-            // ðŸ›  Service History
+            // Customer Details Section
+            const Text(
+              "Owner Details",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: border,
+              ),
+              child: Column(
+                children: [
+                  // Header with expand/collapse button
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isCustomerDetailsExpanded = !_isCustomerDetailsExpanded;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.person,
+                            color: Colors.blue.shade700,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _currentVehicle.customerName ?? 'Owner Information',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            _isCustomerDetailsExpanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            color: Colors.grey,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Expandable content
+                  if (_isCustomerDetailsExpanded) ...[
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_currentVehicle.customerName != null)
+                            _DetailRow(label: "Full Name", value: _currentVehicle.customerName!),
+                          if (_currentVehicle.customerName != null)
+                            const SizedBox(height: 8),
+
+                          if (_currentVehicle.customerIc != null)
+                            _DetailRow(label: "IC Number", value: _currentVehicle.customerIc!),
+                          if (_currentVehicle.customerIc != null)
+                            const SizedBox(height: 8),
+
+                          if (_currentVehicle.customerGender != null)
+                            _DetailRow(label: "Gender", value: _currentVehicle.customerGender!),
+                          if (_currentVehicle.customerGender != null)
+                            const SizedBox(height: 8),
+
+                          if (_currentVehicle.customerPhone != null)
+                            _DetailRow(label: "Phone", value: _currentVehicle.customerPhone!),
+                          if (_currentVehicle.customerPhone != null)
+                            const SizedBox(height: 8),
+
+                          if (_currentVehicle.customerEmail != null)
+                            _DetailRow(label: "Email", value: _currentVehicle.customerEmail!),
+                          if (_currentVehicle.customerEmail != null)
+                            const SizedBox(height: 8),
+
+                          if (_currentVehicle.customerAddress != null)
+                            _DetailRow(label: "Address", value: _currentVehicle.customerAddress!),
+
+                          // Show message if no customer data
+                          if (_currentVehicle.customerName == null &&
+                              _currentVehicle.customerIc == null &&
+                              _currentVehicle.customerPhone == null &&
+                              _currentVehicle.customerEmail == null) ...[
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text(
+                                  'No customer information available',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Service History
             const Text(
               "Service History",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),

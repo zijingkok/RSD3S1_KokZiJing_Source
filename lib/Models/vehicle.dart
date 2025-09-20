@@ -46,8 +46,23 @@ class Vehicle {
 
   // Convert from JSON (Supabase response)
   factory Vehicle.fromJson(Map<String, dynamic> json) {
+    // Debug prints
+    print('Vehicle.fromJson called with: $json');
+
+    // Handle customer data from join
+    Map<String, dynamic>? customerData;
+    if (json['customers'] != null) {
+      if (json['customers'] is List && (json['customers'] as List).isNotEmpty) {
+        customerData = json['customers'][0];
+      } else if (json['customers'] is Map) {
+        customerData = json['customers'];
+      }
+    }
+
+    print('Customer data extracted: $customerData');
+
     return Vehicle(
-      id: json['id'],
+      id: json['vehicle_id'] ?? json['id'], // Handle both column names
       vin: json['vin'] ?? '',
       make: json['make'] ?? '',
       model: json['model'] ?? '',
@@ -64,20 +79,20 @@ class Vehicle {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : null,
-      // Customer details from join
-      customerName: json['customers']?['full_name'],
-      customerIc: json['customers']?['ic_no'],
-      customerPhone: json['customers']?['phone'],
-      customerEmail: json['customers']?['email'],
-      customerGender: json['customers']?['gender'],
-      customerAddress: json['customers']?['address'],
+      // Customer details from join - handle both direct and nested access
+      customerName: customerData?['full_name'] ?? json['customer_name'],
+      customerIc: customerData?['ic_no'] ?? json['customer_ic'],
+      customerPhone: customerData?['phone'] ?? json['customer_phone'],
+      customerEmail: customerData?['email'] ?? json['customer_email'],
+      customerGender: customerData?['gender'] ?? json['customer_gender'],
+      customerAddress: customerData?['address'] ?? json['customer_address'],
     );
   }
 
   // Convert to JSON (for Supabase insert/update)
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) 'id': id,
+      if (id != null) 'vehicle_id': id,
       'vin': vin,
       'make': make,
       'model': model,
