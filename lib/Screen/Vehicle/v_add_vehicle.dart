@@ -142,15 +142,37 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
       final bytes = await _selectedImage!.readAsBytes();
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_plateController.text.trim().replaceAll(' ', '_')}.jpg';
 
-      await _supabase.storage
+      // Check if user is authenticated
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated. Please log in again.');
+      }
+
+      // Upload with proper error handling
+      final uploadResponse = await _supabase.storage
           .from('vehicle_image')
           .uploadBinary(fileName, bytes);
 
+      // Check if upload was successful
+      if (uploadResponse.isEmpty) {
+        throw Exception('Upload failed - no response from server');
+      }
+
+      // Get the public URL
       final imageUrl = _supabase.storage
           .from('vehicle_image')
           .getPublicUrl(fileName);
 
       return imageUrl;
+    } on StorageException catch (e) {
+      print('Storage error: ${e.message}');
+      if (e.statusCode == 403) {
+        throw Exception('Permission denied. Please check storage policies or contact administrator.');
+      } else if (e.statusCode == 401) {
+        throw Exception('Authentication required. Please log in again.');
+      } else {
+        throw Exception('Storage error: ${e.message}');
+      }
     } catch (e) {
       print('Error uploading image: $e');
       throw Exception('Failed to upload image: ${e.toString()}');
@@ -205,7 +227,8 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
 
       if (existingVin != null) {
         _showErrorSnackBar('VIN already exists in the system');
-        return;
+        setState(() => _isLoading = false); // Add this line
+        return; // This should stop execution
       }
 
       // Check if plate number already exists
@@ -217,7 +240,8 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
 
       if (existingPlate != null) {
         _showErrorSnackBar('Plate number already exists in the system');
-        return;
+        setState(() => _isLoading = false); // Add this line
+        return; // This should stop execution
       }
 
       // Upload image if selected
