@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../Models/parts.dart';
-import '../../services/inventory_service.dart';
+import '../../Models/Inventory_models/parts.dart';
+import '../../services/Inventory_services/inventory_service.dart';
 
 class InventoryListScreen extends StatefulWidget {
   const InventoryListScreen({super.key});
@@ -443,7 +443,7 @@ class _InventoryCard extends StatelessWidget {
               Expanded(
                 child: _PrimaryButton.icon(
                   icon: Icons.add,
-                  label: 'Request More',
+                  label: 'Add Stock',
                   onPressed: () {
                     Navigator.of(context).pushNamed('/request', arguments: {
                       'source': 'parts',

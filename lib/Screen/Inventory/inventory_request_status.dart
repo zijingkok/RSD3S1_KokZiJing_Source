@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../Models/procurement_request_item.dart';
-import '../../services/procurement_service.dart';
+import '../../Models/Inventory_models/procurement_request_item.dart';
+import '../../services/Inventory_services/procurement_service.dart';
 
 class ProcurementRequestsScreen extends StatefulWidget {
   const ProcurementRequestsScreen({super.key});
@@ -241,19 +241,7 @@ class _RequestCard extends StatelessWidget {
                 ),
                 _StatusBadge(statusText: req.status),
                 const SizedBox(width: 4),
-                PopupMenuButton<String>(
-                  tooltip: 'Update status',
-                  onSelected: (v) => onStatusChange(v),
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'Pending', child: Text('Mark as Pending')),
-                    PopupMenuItem(value: 'Approved', child: Text('Mark as Approved')),
-                    PopupMenuItem(value: 'Arrived', child: Text('Mark as Arrived')),
-                  ],
-                  child: const Padding(
-                    padding: EdgeInsets.all(4.0),
-                    child: Icon(Icons.more_horiz, color: _ink),
-                  ),
-                ),
+
               ],
             ),
             const SizedBox(height: 8),

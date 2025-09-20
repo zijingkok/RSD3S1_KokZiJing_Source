@@ -1,8 +1,8 @@
 // lib/services/inventory_service.dart
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../Models/inventory_summary.dart';
-import '../Models/parts.dart';
+import '../../Models/Inventory_models/inventory_summary.dart';
+import '../../Models/Inventory_models/parts.dart';
 
 class InventoryService {
   final supabase = Supabase.instance.client;

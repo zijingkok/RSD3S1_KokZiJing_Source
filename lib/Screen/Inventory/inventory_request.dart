@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../Models/parts.dart';
-import '../../services/procurement_service.dart';
+import '../../Models/Inventory_models/parts.dart';
+import '../../services/Inventory_services/procurement_service.dart';
 
 class InventoryRequestScreen extends StatefulWidget {
   const InventoryRequestScreen({super.key});

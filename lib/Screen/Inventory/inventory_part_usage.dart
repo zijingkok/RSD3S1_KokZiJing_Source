@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:workshop_management/Models/part_usage_event.dart';
-import '../../Models/parts.dart';
-import '../../services/part_usage_service.dart';
+import 'package:workshop_management/Models/Inventory_models/part_usage_event.dart';
+import '../../Models/Inventory_models/parts.dart';
+import '../../services/Inventory_services/part_usage_service.dart';
 
 class PartUsageHistoryScreen extends StatefulWidget {
   const PartUsageHistoryScreen({super.key});
