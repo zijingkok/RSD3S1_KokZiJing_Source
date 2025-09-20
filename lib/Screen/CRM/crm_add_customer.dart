@@ -1,5 +1,6 @@
+// lib/CRM/crm_add_customer.dart
 import 'package:flutter/material.dart';
-import 'crm_dashboard.dart' show Customer;
+import '../../Models/customer.dart';
 
 class AddCustomerPage extends StatefulWidget {
   const AddCustomerPage({super.key});
@@ -9,370 +10,388 @@ class AddCustomerPage extends StatefulWidget {
 }
 
 class _AddCustomerPageState extends State<AddCustomerPage> {
-  final _name = TextEditingController();
-  final _phone = TextEditingController();
-  final _email = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
-  DateTime? _dob;
-  String _gender = 'Male';
+  final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _icCtrl = TextEditingController();      // now REQUIRED
+  final _addressCtrl = TextEditingController(); // optional
+
+  String _gender = 'Male'; // default
+
+  // ---- Shared palette (matches other pages) ----
+  static const _bg = Color(0xFFF5F7FA);
+  static const _ink = Color(0xFF1D2A32);
+  static const _muted = Color(0xFF6A7A88);
+  static const _card = Colors.white;
+  static const _stroke = Color(0xFFE6ECF1);
+  static const _primary = Color(0xFF1E88E5);
+  static const _primaryDark = Color(0xFF1565C0);
 
   @override
   void dispose() {
-    _name.dispose();
-    _phone.dispose();
-    _email.dispose();
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _emailCtrl.dispose();
+    _icCtrl.dispose();
+    _addressCtrl.dispose();
     super.dispose();
   }
 
-  // ---------- UI helpers ----------
-  InputDecoration _dec({String? hint}) => InputDecoration(
-    hintText: hint,
-    isDense: false,
+  ThemeData _localTheme(BuildContext context) {
+    final base = Theme.of(context);
+    final tuned = base.textTheme
+        .copyWith(
+      titleLarge: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+      labelLarge: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(height: 1.3),
+    )
+        .apply(bodyColor: _ink, displayColor: _ink);
+
+    return base.copyWith(
+      useMaterial3: true,
+      scaffoldBackgroundColor: _bg,
+      textTheme: tuned,
+      colorScheme: base.colorScheme.copyWith(primary: _primary, secondary: _primary),
+      dividerColor: _stroke,
+      appBarTheme: AppBarTheme(
+        backgroundColor: _bg,
+        foregroundColor: _ink,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleTextStyle: tuned.titleLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: _ink,
+        ),
+      ),
+      snackBarTheme: base.snackBarTheme.copyWith(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _ink,
+        contentTextStyle: const TextStyle(color: Colors.white),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  // Consistent input decoration
+  InputDecoration _dec(String label) => InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(color: _ink, fontWeight: FontWeight.w600),
     filled: true,
-    fillColor: const Color(0xFFF8FAFC),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: const BorderSide(color: Color(0xFFB5B5B5)),
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: _stroke),
     ),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: const BorderSide(color: Color(0xFFB5B5B5)),
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: _stroke),
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: const BorderSide(color: Color(0xFF0F172A), width: 1.6),
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: _primary, width: 1.5),
     ),
   );
 
-  String _formatDob(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-  static const _months = [
-    'January','February','March','April','May','June',
-    'July','August','September','October','November','December'
-  ];
-
-  Future<void> _pickDob() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dob ?? DateTime(2000, 1, 1),
-      firstDate: DateTime(1900, 1, 1),
-      lastDate: DateTime.now(),
-      helpText: 'Select Date of Birth',
-    );
-    if (picked != null) setState(() => _dob = picked);
-  }
-
-  Future<bool> _confirmDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          elevation: 8,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 44,
-                  backgroundColor: const Color(0xFF0F172A),
-                  child: const Icon(Icons.check, color: Colors.white, size: 44),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Confirm Submit?',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32), // green
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          elevation: 3,
-                        ),
-                        child: const Text('Yes', style: TextStyle(fontSize: 16)),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFD32F2F), // red
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          elevation: 3,
-                        ),
-                        child: const Text('No', style: TextStyle(fontSize: 16)),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    return result ?? false;
-  }
-
-  Future<void> _onSubmitTap() async {
-    if (_name.text.trim().isEmpty ||
-        _phone.text.trim().isEmpty ||
-        _email.text.trim().isEmpty ||
-        _dob == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields and DOB')),
-      );
-      return;
-    }
-
-    final ok = await _confirmDialog();
-    if (!ok) return;
-
-    final newCustomer = Customer(
-      name: _name.text.trim(),
-      phone: _phone.text.trim(),
-      email: _email.text.trim(),
-      gender: _gender,
-      dob: _formatDob(_dob!),
-      avatarAsset: null,
-      vehicles: const [],
-    );
-
-    Navigator.pop(context, newCustomer);
-  }
-
-  // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
-    final monthName = _dob == null ? 'July' : _months[_dob!.month - 1];
-    final day = _dob?.day.toString().padLeft(2, '0') ?? '27';
-    final year = (_dob?.year ?? 2002).toString();
+    const cardRadius = 22.0;
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // back
-              Material(
-                color: Colors.black87.withOpacity(.06),
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => Navigator.pop(context),
-                  child: const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Icon(Icons.arrow_back, color: Colors.black87),
+    return Theme(
+      data: _localTheme(context),
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
+            tooltip: 'Back',
+          ),
+          title: const Text('New Customer'),
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _card,
+                    borderRadius: BorderRadius.circular(cardRadius),
+                    border: Border.all(color: _stroke),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x14000000), blurRadius: 18, offset: Offset(0, 8)),
+                    ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // rounded white panel
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(26),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(.08),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    )
-                  ],
-                ),
-                padding: const EdgeInsets.fromLTRB(20, 26, 20, 26),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Center(
-                      child: Text('New Customer Details',
-                          style: TextStyle(
-                              fontSize: 28, fontWeight: FontWeight.w800)),
-                    ),
-                    const SizedBox(height: 24),
-
-                    const Text('Full Name',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _name,
-                      textAlignVertical: TextAlignVertical.center,
-                      decoration: _dec(hint: 'Kok Jing Jing'),
-                    ),
-                    const SizedBox(height: 18),
-
-                    const Text('Phone Number',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      textAlignVertical: TextAlignVertical.center,
-                      decoration: _dec(hint: '012-121 1212'),
-                    ),
-                    const SizedBox(height: 18),
-
-                    const Text('Date of Birth',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 10),
-
-                    // calendar display as 3 boxes (read-only)
-                    GestureDetector(
-                      onTap: _pickDob,
-                      behavior: HitTestBehavior.opaque,
-                      child: Row(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: TextField(
-                              readOnly: true,
-                              textAlign: TextAlign.center,
-                              decoration: _dec(hint: day),
+                          const SizedBox(height: 4),
+                          const Center(
+                            child: Text(
+                              'New Customer Details',
+                              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              readOnly: true,
-                              textAlign: TextAlign.center,
-                              decoration: _dec(hint: monthName),
-                            ),
+                          const SizedBox(height: 20),
+
+                          // Full name
+                          TextFormField(
+                            controller: _nameCtrl,
+                            decoration: _dec('Full Name'),
+                            textInputAction: TextInputAction.next,
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              readOnly: true,
-                              textAlign: TextAlign.center,
-                              decoration: _dec(hint: year),
-                            ),
+                          const SizedBox(height: 14),
+
+                          // Phone
+                          TextFormField(
+                            controller: _phoneCtrl,
+                            keyboardType: TextInputType.phone,
+                            textInputAction: TextInputAction.next,
+                            decoration: _dec('Phone Number'),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Phone is required' : null,
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Gender segmented
+                          const Text('Gender', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _muted)),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: _genderBtn('Male')),
+                              const SizedBox(width: 10),
+                              Expanded(child: _genderBtn('Female')),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Email (REQUIRED)
+                          TextFormField(
+                            controller: _emailCtrl,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            decoration: _dec('Email'),
+                            validator: (v) {
+                              final s = v?.trim() ?? '';
+                              if (s.isEmpty) return 'Email is required';
+                              final ok = RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(s);
+                              return ok ? null : 'Invalid email';
+                            },
+                          ),
+                          const SizedBox(height: 14),
+
+                          // IC Number (REQUIRED)
+                          TextFormField(
+                            controller: _icCtrl,
+                            textInputAction: TextInputAction.next,
+                            decoration: _dec('IC Number'),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'IC number is required' : null,
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Address (optional)
+                          TextFormField(
+                            controller: _addressCtrl,
+                            minLines: 2,
+                            maxLines: 4,
+                            decoration: _dec('Address (optional)'),
+                          ),
+
+                          const SizedBox(height: 22),
+
+                          // Submit button (shared gradient look)
+                          _PrimaryButton(
+                            label: 'Submit',
+                            onPressed: _onSubmit,
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        onPressed: _pickDob,
-                        child: Text(
-                          _dob == null
-                              ? 'Pick a date'
-                              : 'Selected: ${_formatDob(_dob!)}',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    const Text('Gender',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => setState(() => _gender = 'Male'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: _gender == 'Male'
-                                  ? const Color(0xFF2E4A57)
-                                  : Colors.white,
-                              foregroundColor:
-                              _gender == 'Male' ? Colors.white : Colors.black87,
-                              side: BorderSide(
-                                color: _gender == 'Male'
-                                    ? const Color(0xFF2E4A57)
-                                    : const Color(0xFFB5B5B5),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14)),
-                            ),
-                            child: const Text('Male', style: TextStyle(fontSize: 16)),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => setState(() => _gender = 'Female'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: _gender == 'Female'
-                                  ? const Color(0xFF2E4A57)
-                                  : Colors.white,
-                              foregroundColor: _gender == 'Female'
-                                  ? Colors.white
-                                  : Colors.black87,
-                              side: BorderSide(
-                                color: _gender == 'Female'
-                                    ? const Color(0xFF2E4A57)
-                                    : const Color(0xFFB5B5B5),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14)),
-                            ),
-                            child:
-                            const Text('Female', style: TextStyle(fontSize: 16)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-
-                    const Text('Email',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      textAlignVertical: TextAlignVertical.center,
-                      decoration: _dec(hint: 'zjingkok@gmail.com'),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _onSubmitTap,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F172A),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 18),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
-                          elevation: 2,
-                        ),
-                        child: const Text('Submit', style: TextStyle(fontSize: 18)),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _genderBtn(String value) {
+    final selected = _gender == value;
+    return Material(
+      color: selected ? const Color(0xFF26323A) : Colors.white,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: selected ? const Color(0xFF26323A) : _stroke),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => _gender = value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Center(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w700,
+                color: selected ? Colors.white : _ink,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ------- Pretty confirm dialog (polished UI) -------
+  Future<bool> _showPrettyConfirm(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black54,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon badge
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0F1824),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(color: Color(0x22000000), blurRadius: 12, offset: Offset(0, 6)),
+                  ],
+                ),
+                child: const Icon(Icons.check_rounded, size: 40, color: Colors.white),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Confirm Submit?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  // YES (green)
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2EB872),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Yes', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // NO (red)
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE53935),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('No', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
             ],
+          ),
+        ),
+      ),
+    ) ??
+        false;
+  }
+
+  Future<void> _onSubmit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final confirm = await _showPrettyConfirm(context);
+    if (!confirm) return;
+
+    // Build a Customer "draft" to return to the dashboard.
+    final draft = Customer(
+      id: '',
+      fullName: _nameCtrl.text.trim(),
+      phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+      email: _emailCtrl.text.trim(), // required -> guaranteed non-empty & valid
+      gender: _gender,
+      icNo: _icCtrl.text.trim(),     // required -> guaranteed non-empty
+      address: _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
+      createdAt: null,
+      updatedAt: null,
+    );
+
+    if (!mounted) return;
+    Navigator.pop(context, draft);
+  }
+}
+
+/* ---------- Shared primary button (same look as other pages) ---------- */
+class _PrimaryButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final String label;
+  const _PrimaryButton({required this.onPressed, required this.label});
+
+  static const _primary = _AddCustomerPageState._primary;
+  static const _primaryDark = _AddCustomerPageState._primaryDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 120),
+      scale: 1.0,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
+            colors: [_primary, _primaryDark],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: const [
+            BoxShadow(color: Color(0x22000000), blurRadius: 14, offset: Offset(0, 6)),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                ),
+              ),
+            ),
           ),
         ),
       ),
