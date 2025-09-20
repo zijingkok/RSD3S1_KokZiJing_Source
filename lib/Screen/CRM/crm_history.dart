@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 
 import '../../Models/customer.dart';
 import '../../models/interaction.dart';
@@ -30,6 +33,54 @@ class _CustomerHistoryPageState extends State<CustomerHistoryPage> {
   static const _primary = Color(0xFF1E88E5);
   static const _primaryDark = Color(0xFF1565C0);
   static const _stroke = Color(0xFFE6ECF1);
+
+  String _normalizeToE164(String raw, {String defaultCountryCode = '60'}) {
+    // Simple normalizer: keep digits, prepend country code if missing.
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return '';
+    // If number starts with country code already, keep it;
+    // otherwise add your default (e.g., '60' for Malaysia). Adjust to your need.
+    if (digits.startsWith(defaultCountryCode) || digits.startsWith('+' )) {
+      return digits.replaceFirst('+', '');
+    }
+    if (digits.startsWith('0')) {
+      // Common local format -> strip leading 0 then add CC
+      return '$defaultCountryCode${digits.substring(1)}';
+    }
+    return '$defaultCountryCode$digits';
+  }
+
+  Future<void> _openWhatsApp(String? phone, {String? presetText}) async {
+    if (phone == null || phone.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number on this customer')),
+      );
+      return;
+    }
+
+    final e164 = _normalizeToE164(phone);
+    if (e164.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid phone number')),
+      );
+      return;
+    }
+
+    final text = presetText ?? 'Hi ${widget.customer.fullName}';
+    final encoded = Uri.encodeComponent(text);
+
+    // Try deep link to WhatsApp app first
+    final appUri = Uri.parse('whatsapp://send?phone=$e164&text=$encoded');
+
+    // Fallback to browser (works even if app not installed)
+    final webUri = Uri.parse('https://wa.me/$e164?text=$encoded');
+
+    if (await canLaunchUrl(appUri)) {
+      await launchUrl(appUri, mode: LaunchMode.externalApplication);
+    } else {
+      await launchUrl(webUri, mode: LaunchMode.externalApplication);
+    }
+  }
 
   @override
   void initState() {
@@ -232,6 +283,22 @@ class _CustomerHistoryPageState extends State<CustomerHistoryPage> {
         appBar: AppBar(
           title: Text(widget.customer.fullName),
           actions: [
+            // WhatsApp quick action
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  backgroundColor: const Color(0xFF25D366), // WhatsApp green
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                ),
+                icon: const FaIcon(FontAwesomeIcons.whatsapp, size: 18), // ✅
+                label: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.w700)),
+                onPressed: () => _openWhatsApp(widget.customer.phone),
+              )
+
+            ),
             IconButton(
               tooltip: 'Refresh',
               onPressed: _load,
@@ -239,6 +306,7 @@ class _CustomerHistoryPageState extends State<CustomerHistoryPage> {
             ),
           ],
         ),
+
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),

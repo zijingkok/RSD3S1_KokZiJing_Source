@@ -49,5 +49,10 @@
     <string>This app needs access to camera to take vehicle photos</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>This app needs access to photo library to select vehicle images</string>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>whatsapp</string>
+    </array>
+
 </dict>
 </plist>
