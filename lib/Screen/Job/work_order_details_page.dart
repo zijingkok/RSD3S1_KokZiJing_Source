@@ -148,6 +148,7 @@ class _WorkOrderDetailsPageState extends State<WorkOrderDetailsPage> {
                             if (result != null) {
                               await context.read<WorkOrderStore>()
                                   .assign(wo.workOrderId, result.mechanicId, result.start);
+                              await context.read<WorkOrderStore>().setStatus(wo.workOrderId, WorkOrderStatus.scheduled);
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('Assigned')),
@@ -211,6 +212,7 @@ class _WorkOrderDetailsPageState extends State<WorkOrderDetailsPage> {
                             if (result != null) {
                               await context.read<WorkOrderStore>()
                                   .assign(wo.workOrderId, result.mechanicId, result.start);
+                              await context.read<WorkOrderStore>().setStatus(wo.workOrderId, WorkOrderStatus.scheduled);
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('Reassigned')),

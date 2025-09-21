@@ -184,7 +184,7 @@ class JobWorkloadDetailPage extends StatelessWidget {
                         children: [
                           Expanded(child: Text(s.name)),
                           Text('${(s.utilization * 100).toStringAsFixed(0)}% util • ${s.freeHours.toStringAsFixed(1)}h free'),
-                          // TODO: Add an "Assign" button wired to your assignment flow
+
                         ],
                       )),
                     ],
