@@ -286,17 +286,17 @@ class _CustomerHistoryPageState extends State<CustomerHistoryPage> {
             // WhatsApp quick action
             Padding(
               padding: const EdgeInsets.only(right: 6),
-              child: TextButton.icon(
+              child: TextButton(
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   backgroundColor: const Color(0xFF25D366), // WhatsApp green
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
                 ),
-                icon: const FaIcon(FontAwesomeIcons.whatsapp, size: 18), // ✅
-                label: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.w700)),
                 onPressed: () => _openWhatsApp(widget.customer.phone),
+                child: const FaIcon(FontAwesomeIcons.whatsapp, size: 18),
               )
+
 
             ),
             IconButton(

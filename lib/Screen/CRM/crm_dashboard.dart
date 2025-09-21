@@ -1,6 +1,5 @@
+// lib/CRM/crm_dashboard.dart
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../../Models/customer.dart';
 import '../../services/customer_service.dart';
 
@@ -15,14 +14,16 @@ class CrmDashboard extends StatefulWidget {
   State<CrmDashboard> createState() => _CrmDashboardState();
 }
 
+enum _ListFilter { all, recentAdded, recentUpdated }
+
 class _CrmDashboardState extends State<CrmDashboard> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  _ListFilter _filter = _ListFilter.all;
   bool _loading = true;
   String? _error;
   List<Customer> _customers = const [];
 
-  // ---- Shared palette (same as History page) ----
   static const _bg = Color(0xFFF5F7FA);
   static const _ink = Color(0xFF1D2A32);
   static const _muted = Color(0xFF6A7A88);
@@ -54,11 +55,13 @@ class _CrmDashboardState extends State<CrmDashboard> {
 
   ThemeData _localTheme(BuildContext context) {
     final base = Theme.of(context);
-    final tuned = base.textTheme.copyWith(
+    final tuned = base.textTheme
+        .copyWith(
       titleLarge: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
       bodyMedium: base.textTheme.bodyMedium?.copyWith(height: 1.3),
       labelLarge: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-    ).apply(bodyColor: _ink, displayColor: _ink);
+    )
+        .apply(bodyColor: _ink, displayColor: _ink);
 
     return base.copyWith(
       useMaterial3: true,
@@ -85,7 +88,7 @@ class _CrmDashboardState extends State<CrmDashboard> {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        hintStyle: TextStyle(color: _muted),
+        hintStyle: const TextStyle(color: _muted),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(28),
@@ -103,20 +106,41 @@ class _CrmDashboardState extends State<CrmDashboard> {
     );
   }
 
+  String _filterString(_ListFilter f) {
+    switch (f) {
+      case _ListFilter.recentAdded:
+        return 'added';
+      case _ListFilter.recentUpdated:
+        return 'updated';
+      case _ListFilter.all:
+      default:
+        return 'all';
+    }
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
+
     try {
-      final rows = await CustomerService.instance.fetchCustomers(query: _query);
+      final rows = await CustomerService.instance.fetchCustomers(
+        query: _query,
+        filter: _filterString(_filter),
+        recentDays: 7,
+      );
       if (!mounted) return;
-      setState(() => _customers = rows);
+      setState(() {
+        _customers = rows;
+        _loading = false;
+      });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
@@ -134,23 +158,28 @@ class _CrmDashboardState extends State<CrmDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Summary card
                 _TotalCustomersCard(
                   countText: _loading ? '—' : _customers.length.toString(),
                 ),
                 const SizedBox(height: 16),
-
-                // Search
                 TextField(
                   controller: _searchCtrl,
                   decoration: const InputDecoration(
-                    hintText: 'Search by name',
+                    hintText: 'Search by name, phone, or IC',
                     prefixIcon: Icon(Icons.search),
                   ),
                 ),
+                const SizedBox(height: 12),
+                _FilterRow(
+                  value: _filter,
+                  onChanged: (f) {
+                    if (f != _filter) {
+                      setState(() => _filter = f);
+                      _load();
+                    }
+                  },
+                ),
                 const SizedBox(height: 18),
-
-                // Section header + "+ Customer" button
                 Row(
                   children: [
                     const Expanded(
@@ -161,7 +190,7 @@ class _CrmDashboardState extends State<CrmDashboard> {
                     ),
                     _PrimaryButton.icon(
                       icon: Icons.add_rounded,
-                      label: 'Customer', // shows as "+ Customer" via icon + label
+                      label: 'Customer',
                       onPressed: () async {
                         final draft = await Navigator.push<Customer?>(
                           context,
@@ -187,8 +216,6 @@ class _CrmDashboardState extends State<CrmDashboard> {
                   ],
                 ),
                 const SizedBox(height: 12),
-
-                // List / states
                 if (_error != null) ...[
                   Text('Error: $_error', style: const TextStyle(color: Colors.red)),
                 ] else if (_loading) ...[
@@ -240,16 +267,12 @@ class _CrmDashboardState extends State<CrmDashboard> {
   }
 }
 
-/* ---------------- Reusable bits (same feel as History page) ---------------- */
-
 class _PrimaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String label;
   final IconData? icon;
-  const _PrimaryButton({super.key, required this.onPressed, required this.label})
-      : icon = null;
-  const _PrimaryButton.icon(
-      {super.key, required this.onPressed, required this.label, required this.icon});
+  const _PrimaryButton({super.key, required this.onPressed, required this.label}) : icon = null;
+  const _PrimaryButton.icon({super.key, required this.onPressed, required this.label, required this.icon});
 
   static const _primary = _CrmDashboardState._primary;
   static const _primaryDark = _CrmDashboardState._primaryDark;
@@ -293,7 +316,7 @@ class _PrimaryButton extends StatelessWidget {
             onTap: onPressed,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              child: child, // <-- render icon + text here
+              child: child,
             ),
           ),
         ),
@@ -354,6 +377,39 @@ class _TotalCustomersCard extends StatelessWidget {
   }
 }
 
+/// Phone formatter used in the list tiles
+String _fmtPhone(String? raw) {
+  if (raw == null) return '-';
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.length < 9) return raw;
+
+  // Mobile 10/11 digits: 3-4 <space> rest, e.g. 012-3456 789(0)
+  if (digits.length == 10 || digits.length == 11) {
+    final p1 = digits.substring(0, 3);
+    final p2 = digits.substring(3, 7);
+    final p3 = digits.substring(7);
+    return '$p1-$p2 $p3';
+  }
+
+  // Landline 9/10 digits: 2-4 <space> rest, e.g. 03-1234 5678
+  if (digits.length == 9 || digits.length == 10) {
+    final p1 = digits.substring(0, 2);
+    final p2 = digits.substring(2, 6);
+    final p3 = digits.substring(6);
+    return '$p1-$p2 $p3';
+  }
+
+  // Fallback pattern for other lengths
+  if (digits.length > 7) {
+    final p1 = digits.substring(0, 3);
+    final p2 = digits.substring(3, 7);
+    final p3 = digits.substring(7);
+    return '$p1-$p2 $p3';
+  }
+
+  return raw;
+}
+
 class _CustomerTile extends StatelessWidget {
   final Customer customer;
   final VoidCallback onHistory;
@@ -398,10 +454,9 @@ class _CustomerTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(customer.fullName,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(customer.fullName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text(customer.phone ?? '-', style: TextStyle(fontSize: 13, color: _muted)),
+                  Text(_fmtPhone(customer.phone), style: TextStyle(fontSize: 13, color: _muted)),
                 ],
               ),
             ),
@@ -442,6 +497,53 @@ class _CustomerTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: decoration,
           child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterRow extends StatelessWidget {
+  final _ListFilter value;
+  final ValueChanged<_ListFilter> onChanged;
+  const _FilterRow({required this.value, required this.onChanged});
+
+  static const _stroke = _CrmDashboardState._stroke;
+  static const _ink = _CrmDashboardState._ink;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _seg('All', value == _ListFilter.all, () => onChanged(_ListFilter.all)),
+        const SizedBox(width: 10),
+        _seg('Recently added', value == _ListFilter.recentAdded, () => onChanged(_ListFilter.recentAdded)),
+        const SizedBox(width: 10),
+        _seg('Recently updated', value == _ListFilter.recentUpdated, () => onChanged(_ListFilter.recentUpdated)),
+      ],
+    );
+  }
+
+  Widget _seg(String text, bool selected, VoidCallback onTap) {
+    return Material(
+      color: selected ? const Color(0xFF26323A) : Colors.white,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: selected ? const Color(0xFF26323A) : _stroke),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: selected ? Colors.white : _ink,
+            ),
+          ),
         ),
       ),
     );

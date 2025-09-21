@@ -121,6 +121,7 @@ class Vehicle {
       vehicleImageUrl: json['vehicle_image_url'] as String?,
       createdAt: _toDate(json['created_at']),
     );
+
   }
 }
 
@@ -155,3 +156,4 @@ class CustomerRepo {
         .toList();
   }
 }
+

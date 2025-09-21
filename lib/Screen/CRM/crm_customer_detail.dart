@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../Models/customer.dart';// 👈 add
-import '../../services/customer_service.dart'; // 👈 add
+import '../../Models/customer.dart';
+import '../../services/customer_service.dart';
 import 'crm_edit_profile.dart';
 
 class CustomerDetailPage extends StatefulWidget {
@@ -13,15 +13,12 @@ class CustomerDetailPage extends StatefulWidget {
 }
 
 class _CustomerDetailPageState extends State<CustomerDetailPage> {
-  // Local copy so we can refresh after edit
   late Customer _customer;
 
-  // 👇 vehicle state
   bool _vehLoading = true;
   String? _vehError;
   List<Vehicle> _vehicles = const [];
 
-  // Shared palette (same as other screens)
   static const _bg = Color(0xFFF5F7FA);
   static const _ink = Color(0xFF1D2A32);
   static const _muted = Color(0xFF6A7A88);
@@ -34,7 +31,46 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
   void initState() {
     super.initState();
     _customer = widget.customer;
-    _loadVehicles(); // 👈 fetch on open
+    _loadVehicles();
+  }
+
+  String _fmtIc(String? raw) {
+    if (raw == null) return '-';
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 12) return raw;
+    final p1 = digits.substring(0, 6);
+    final p2 = digits.substring(6, 8);
+    final p3 = digits.substring(8, 12);
+    return '$p1-$p2-$p3';
+  }
+
+  String _fmtPhone(String? raw) {
+    if (raw == null) return '-';
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 9) return raw;
+
+    if (digits.length == 10 || digits.length == 11) {
+      final p1 = digits.substring(0, 3);
+      final p2 = digits.substring(3, 7);
+      final p3 = digits.substring(7);
+      return '$p1-$p2 $p3';
+    }
+
+    if (digits.length == 9 || digits.length == 10) {
+      final p1 = digits.substring(0, 2);
+      final p2 = digits.substring(2, 6);
+      final p3 = digits.substring(6);
+      return '$p1-$p2 $p3';
+    }
+
+    if (digits.length > 7) {
+      final p1 = digits.substring(0, 3);
+      final p2 = digits.substring(3, 7);
+      final p3 = digits.substring(7);
+      return '$p1-$p2 $p3';
+    }
+
+    return raw;
   }
 
   Future<void> _loadVehicles() async {
@@ -62,11 +98,9 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
     final base = Theme.of(context);
     final tuned = base.textTheme
         .copyWith(
-      titleLarge:
-      base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+      titleLarge: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
       bodyMedium: base.textTheme.bodyMedium?.copyWith(height: 1.3),
-      labelLarge:
-      base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+      labelLarge: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
     )
         .apply(bodyColor: _ink, displayColor: _ink);
 
@@ -74,8 +108,7 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
       useMaterial3: true,
       scaffoldBackgroundColor: _bg,
       textTheme: tuned,
-      colorScheme:
-      base.colorScheme.copyWith(primary: _primary, secondary: _primary),
+      colorScheme: base.colorScheme.copyWith(primary: _primary, secondary: _primary),
       dividerColor: _stroke,
       appBarTheme: AppBarTheme(
         backgroundColor: _bg,
@@ -91,7 +124,6 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
   }
 
   Future<void> _onEdit() async {
-    // 1) Navigate to edit screen
     final edited = await Navigator.push<Customer>(
       context,
       MaterialPageRoute(
@@ -101,17 +133,11 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
 
     if (!mounted || edited == null) return;
 
-    // 2) Persist to DB
     try {
       final saved = await CustomerService.instance.update(edited.id, edited);
-
-      // 3) Refresh UI with server response
       if (!mounted) return;
       setState(() => _customer = saved);
-
-      // 4) Reload vehicles in case customer_id or related data changed
       _loadVehicles();
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile updated')),
       );
@@ -142,7 +168,6 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           child: Column(
             children: [
-              // Cover
               Container(
                 height: 160,
                 decoration: BoxDecoration(
@@ -154,20 +179,15 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                   ),
                 ),
               ),
-              // Card overlapping cover
               Container(
                 transform: Matrix4.translationValues(0, -36, 0),
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: _card,
                   borderRadius: BorderRadius.circular(panelRadius),
-                  border:
-                  const Border.fromBorderSide(BorderSide(color: _stroke)),
+                  border: const Border.fromBorderSide(BorderSide(color: _stroke)),
                   boxShadow: const [
-                    BoxShadow(
-                        color: Color(0x14000000),
-                        blurRadius: 18,
-                        offset: Offset(0, 8)),
+                    BoxShadow(color: Color(0x14000000), blurRadius: 18, offset: Offset(0, 8)),
                   ],
                 ),
                 child: Padding(
@@ -180,37 +200,27 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                       Text(
                         _customer.fullName,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.w800),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
                       ),
-                      if ((_customer.phone ?? '').isNotEmpty ||
-                          (_customer.email ?? '').isNotEmpty) ...[
+                      if ((_customer.phone ?? '').isNotEmpty || (_customer.email ?? '').isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Text(
                           [
-                            if ((_customer.phone ?? '').isNotEmpty)
-                              _customer.phone!,
-                            if ((_customer.email ?? '').isNotEmpty)
-                              _customer.email!,
+                            if ((_customer.phone ?? '').isNotEmpty) _fmtPhone(_customer.phone),
+                            if ((_customer.email ?? '').isNotEmpty) _customer.email!,
                           ].join(' • '),
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: _muted,
-                              fontWeight: FontWeight.w600),
+                          style: const TextStyle(fontSize: 13, color: _muted, fontWeight: FontWeight.w600),
                           textAlign: TextAlign.center,
                         ),
                       ],
                       const SizedBox(height: 22),
-
-                      // Info grid
                       _InfoRow(
                         leftLabel: 'IC Number',
-                        leftValue: _customer.icNo ?? '-',
+                        leftValue: _fmtIc(_customer.icNo),
                         rightLabel: 'Gender',
                         rightValue: _customer.gender ?? '-',
                         muted: _muted,
                       ),
-
                       const SizedBox(height: 16),
                       _InfoRow.full(
                         label: 'Address',
@@ -218,17 +228,11 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                         muted: _muted,
                       ),
                       const SizedBox(height: 24),
-
-                      // Vehicles section header
                       const Align(
                         alignment: Alignment.centerLeft,
-                        child: Text('Registered Vehicle (Brand & Model)',
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w800)),
+                        child: Text('Registered Vehicle', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                       ),
                       const SizedBox(height: 10),
-
-                      // 🚗 Vehicles content
                       if (_vehLoading)
                         const _ShimmerRow()
                       else if (_vehError != null)
@@ -249,14 +253,9 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                           )
                         else
                           Column(
-                            children: _vehicles
-                                .map((v) => _VehicleTile(v: v))
-                                .toList(),
+                            children: _vehicles.map((v) => _VehicleTile(v: v)).toList(),
                           ),
-
                       const SizedBox(height: 28),
-
-                      // Actions
                       SizedBox(
                         width: double.infinity,
                         child: _PrimaryButton(
@@ -276,8 +275,6 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
   }
 }
 
-/* --- Small UI pieces (shared look) --- */
-
 class _PositionedAvatar extends StatelessWidget {
   const _PositionedAvatar();
 
@@ -291,17 +288,12 @@ class _PositionedAvatar extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           color: const Color(0xFFF1F4F8),
-          border: const Border.fromBorderSide(
-              BorderSide(color: _CustomerDetailPageState._stroke)),
+          border: const Border.fromBorderSide(BorderSide(color: _CustomerDetailPageState._stroke)),
           boxShadow: const [
-            BoxShadow(
-                color: Color(0x11000000),
-                blurRadius: 10,
-                offset: Offset(0, 4))
+            BoxShadow(color: Color(0x11000000), blurRadius: 10, offset: Offset(0, 4)),
           ],
         ),
-        child: const Icon(Icons.person,
-            size: 56, color: _CustomerDetailPageState._ink),
+        child: const Icon(Icons.person, size: 56, color: _CustomerDetailPageState._ink),
       ),
     );
   }
@@ -336,18 +328,11 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     Text _label(String s) => Text(
       s,
-      style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: muted,
-          letterSpacing: .2),
+      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: muted, letterSpacing: .2),
     );
     Text _value(String s) => Text(
       s.isEmpty ? '-' : s,
-      style: const TextStyle(
-          fontSize: 16,
-          color: _CustomerDetailPageState._ink,
-          height: 1.35),
+      style: const TextStyle(fontSize: 16, color: _CustomerDetailPageState._ink, height: 1.35),
     );
 
     return Row(
@@ -417,15 +402,11 @@ class _EmptyStateCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 14.5, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 12.5, color: muted)),
-                ]),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(fontSize: 12.5, color: muted)),
+            ]),
           ),
         ],
       ),
@@ -455,7 +436,7 @@ class _PrimaryButton extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
           boxShadow: const [
-            BoxShadow(color: Color(0x22000000), blurRadius: 14, offset: Offset(0, 6))
+            BoxShadow(color: Color(0x22000000), blurRadius: 14, offset: Offset(0, 6)),
           ],
         ),
         child: Material(
@@ -464,15 +445,11 @@ class _PrimaryButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             onTap: onPressed,
             child: Padding(
-              padding:
-              const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
               child: Center(
                 child: Text(
                   label,
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
                 ),
               ),
             ),
@@ -483,7 +460,6 @@ class _PrimaryButton extends StatelessWidget {
   }
 }
 
-/// Simple loader placeholder for the vehicle list
 class _ShimmerRow extends StatelessWidget {
   const _ShimmerRow();
 
@@ -503,7 +479,6 @@ class _ShimmerRow extends StatelessWidget {
   }
 }
 
-/// Each vehicle tile row
 class _VehicleTile extends StatelessWidget {
   final Vehicle v;
   const _VehicleTile({required this.v});
@@ -528,32 +503,25 @@ class _VehicleTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: _CustomerDetailPageState._stroke),
             ),
-            child: const Icon(Icons.directions_car_filled,
-                color: _CustomerDetailPageState._ink),
+            child: const Icon(Icons.directions_car_filled, color: _CustomerDetailPageState._ink),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Plate number prominent
-                  Text(
-                    v.plateNumber.isEmpty ? 'Unknown plate' : v.plateNumber,
-                    style: const TextStyle(
-                        fontSize: 15.5, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 2),
-                  // Brand/Model/Year compact
-                  Text(
-                    [
-                      if ((v.make ?? '').isNotEmpty) v.make!,
-                      if ((v.model ?? '').isNotEmpty) v.model!,
-                      if (v.year != null) '${v.year}',
-                    ].join(' • '),
-                    style: const TextStyle(
-                        fontSize: 13.5, color: _CustomerDetailPageState._muted),
-                  ),
-                ]),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                v.plateNumber.isEmpty ? 'Unknown plate' : v.plateNumber,
+                style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                [
+                  if ((v.make ?? '').isNotEmpty) v.make!,
+                  if ((v.model ?? '').isNotEmpty) v.model!,
+                  if (v.year != null) '${v.year}',
+                ].join(' • '),
+                style: const TextStyle(fontSize: 13.5, color: _CustomerDetailPageState._muted),
+              ),
+            ]),
           ),
         ],
       ),

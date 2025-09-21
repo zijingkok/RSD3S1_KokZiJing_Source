@@ -1,5 +1,6 @@
 // lib/CRM/crm_add_customer.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../Models/customer.dart';
 
 class AddCustomerPage extends StatefulWidget {
@@ -15,7 +16,7 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _icCtrl = TextEditingController();      // now REQUIRED
+  final _icCtrl = TextEditingController(); // REQUIRED (auto-format xxxxxx-xx-xxxx)
   final _addressCtrl = TextEditingController(); // optional
 
   String _gender = 'Male'; // default
@@ -187,12 +188,24 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
                           ),
                           const SizedBox(height: 14),
 
-                          // IC Number (REQUIRED)
+                          // IC Number (REQUIRED, auto 6-2-4 formatting)
                           TextFormField(
                             controller: _icCtrl,
+                            keyboardType: TextInputType.number,
                             textInputAction: TextInputAction.next,
-                            decoration: _dec('IC Number'),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'IC number is required' : null,
+                            inputFormatters: [
+                              NricTextInputFormatter(), // custom formatter inserts dashes
+                            ],
+                            maxLength: 14, // xxxxxx-xx-xxxx (14 incl. 2 dashes)
+                            decoration: _dec('IC Number').copyWith(counterText: ''),
+                            validator: (v) {
+                              final s = (v ?? '').trim();
+                              final digits = s.replaceAll('-', '');
+                              if (digits.isEmpty) return 'IC number is required';
+                              if (digits.length != 12) return 'IC must be 12 digits';
+                              final ok = RegExp(r'^\d{6}-\d{2}-\d{4}$').hasMatch(s);
+                              return ok ? null : 'Format must be xxxxxx-xx-xxxx';
+                            },
                           ),
                           const SizedBox(height: 14),
 
@@ -328,6 +341,9 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
         false;
   }
 
+  // Normalize IC to digits-only for storage
+  String _normalizedIc() => _icCtrl.text.replaceAll('-', '').trim();
+
   Future<void> _onSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -341,7 +357,7 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
       phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
       email: _emailCtrl.text.trim(), // required -> guaranteed non-empty & valid
       gender: _gender,
-      icNo: _icCtrl.text.trim(),     // required -> guaranteed non-empty
+      icNo: _normalizedIc(), // store 12 digits without dashes
       address: _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
       createdAt: null,
       updatedAt: null,
@@ -396,5 +412,65 @@ class _PrimaryButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/* ---------- Malaysian IC live input formatter xxxxxx-xx-xxxx ---------- */
+class NricTextInputFormatter extends TextInputFormatter {
+  static final _nonDigits = RegExp(r'\D');
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    // 1) Strip to digits and cap at 12
+    var digits = newValue.text.replaceAll(_nonDigits, '');
+    if (digits.length > 12) digits = digits.substring(0, 12);
+
+    // 2) Build formatted text with dashes after 6th and 8th digit
+    final sb = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      sb.write(digits[i]);
+      if (i == 5 && digits.length > 6) sb.write('-'); // after 6th digit
+      if (i == 7 && digits.length > 8) sb.write('-'); // after 8th digit
+    }
+    final formatted = sb.toString();
+
+    // 3) Recalculate caret position
+    final selectionIndex = newValue.selection.end;
+    final digitsBeforeCursor = _countDigitsBeforeIndex(newValue.text, selectionIndex);
+    final newCursor = _positionForDigitIndex(formatted, digitsBeforeCursor);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: newCursor),
+      composing: TextRange.empty,
+    );
+  }
+
+  // Counts digits in `text` strictly before `index`
+  int _countDigitsBeforeIndex(String text, int index) {
+    var count = 0;
+    for (var i = 0; i < index && i < text.length; i++) {
+      final cu = text.codeUnitAt(i);
+      if (cu >= 48 && cu <= 57) count++; // '0'..'9'
+    }
+    return count;
+  }
+
+  // Returns caret position in `formatted` after `digitCount` digits
+  int _positionForDigitIndex(String formatted, int digitCount) {
+    if (digitCount <= 0) return 0;
+    var seen = 0;
+    for (var i = 0; i < formatted.length; i++) {
+      final cu = formatted.codeUnitAt(i);
+      final isDigit = cu >= 48 && cu <= 57;
+      if (isDigit) {
+        seen++;
+        if (seen == digitCount) return i + 1; // caret after this digit
+      }
+    }
+    return formatted.length;
   }
 }

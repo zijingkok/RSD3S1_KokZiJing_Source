@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../Models/customer.dart'; // <- adjust relative path if needed
+import '../../Models/customer.dart';
 
-/// Edit DB Customer (clean, professional, same style as other pages)
+/// Edit DB Customer
 class EditCustomerPage extends StatefulWidget {
   final Customer customer;
   const EditCustomerPage({super.key, required this.customer});
@@ -20,7 +20,7 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
   // gender is nullable in DB; default to '' (blank)
   late String _gender;
 
-  // ---- Shared palette (same as your other screens) ----
+  // ---- Shared palette  ----
   static const _bg = Color(0xFFF5F7FA);
   static const _ink = Color(0xFF1D2A32);
   static const _muted = Color(0xFF6A7A88);
