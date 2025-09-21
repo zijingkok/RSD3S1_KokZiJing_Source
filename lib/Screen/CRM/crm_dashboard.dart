@@ -118,6 +118,16 @@ class _CrmDashboardState extends State<CrmDashboard> {
     }
   }
 
+  // --- NEW: client-side matcher (name + phone + IC), case-insensitive
+  bool _matchesQuery(Customer c, String q) {
+    final s = q.trim().toLowerCase();
+    if (s.isEmpty) return true;
+    final name = (c.fullName).toLowerCase();
+    final phone = (c.phone ?? '').toLowerCase();
+    final ic = (c.icNo ?? '').toLowerCase();
+    return name.contains(s) || phone.contains(s) || ic.contains(s);
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -126,13 +136,19 @@ class _CrmDashboardState extends State<CrmDashboard> {
 
     try {
       final rows = await CustomerService.instance.fetchCustomers(
+        // keep passing query (in case your API already uses it),
+        // but we also filter locally to ensure name matches work.
         query: _query,
         filter: _filterString(_filter),
         recentDays: 7,
       );
+
+      // Apply local search that includes NAME as well.
+      final filtered = rows.where((c) => _matchesQuery(c, _query)).toList();
+
       if (!mounted) return;
       setState(() {
-        _customers = rows;
+        _customers = filtered;
         _loading = false;
       });
     } catch (e) {
@@ -164,6 +180,7 @@ class _CrmDashboardState extends State<CrmDashboard> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _searchCtrl,
+                  textInputAction: TextInputAction.search,
                   decoration: const InputDecoration(
                     hintText: 'Search by name, phone, or IC',
                     prefixIcon: Icon(Icons.search),
@@ -383,30 +400,24 @@ String _fmtPhone(String? raw) {
   final digits = raw.replaceAll(RegExp(r'\D'), '');
   if (digits.length < 9) return raw;
 
-  // Mobile 10/11 digits: 3-4 <space> rest, e.g. 012-3456 789(0)
   if (digits.length == 10 || digits.length == 11) {
     final p1 = digits.substring(0, 3);
     final p2 = digits.substring(3, 7);
     final p3 = digits.substring(7);
     return '$p1-$p2 $p3';
   }
-
-  // Landline 9/10 digits: 2-4 <space> rest, e.g. 03-1234 5678
   if (digits.length == 9 || digits.length == 10) {
     final p1 = digits.substring(0, 2);
     final p2 = digits.substring(2, 6);
     final p3 = digits.substring(6);
     return '$p1-$p2 $p3';
   }
-
-  // Fallback pattern for other lengths
   if (digits.length > 7) {
     final p1 = digits.substring(0, 3);
     final p2 = digits.substring(3, 7);
     final p3 = digits.substring(7);
     return '$p1-$p2 $p3';
   }
-
   return raw;
 }
 
