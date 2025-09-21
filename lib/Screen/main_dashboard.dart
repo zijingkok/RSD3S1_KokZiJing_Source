@@ -36,7 +36,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const VehicleDashboard(),
           const JobModule(),
           const CrmDashboard(),
-          const CrmDashboard(),
           const InventoryModule(),
         ],
       ),
