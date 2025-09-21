@@ -8,6 +8,8 @@ class PartUsageService {
   PartUsageService({SupabaseClient? client})
       : _client = client ?? Supabase.instance.client;
 
+
+  // Returns a `List<PartUsageEvent>` containing all matching usage events.
   Future<List<PartUsageEvent>> fetchUsageHistory(String partId) async {
     final res = await _client
         .from('part_usage')
@@ -22,6 +24,8 @@ class PartUsageService {
     return list;
   }
 
+
+  // Fetch summarized usage statistics for a given part.
   Future<Map<String, int>> fetchUsageSummary(String partId) async {
     final res = await _client
         .from('part_usage')

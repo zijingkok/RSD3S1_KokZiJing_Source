@@ -16,7 +16,7 @@ class InventoryService {
           (sum, row) => sum + (row['stock_quantity'] as int? ?? 0),
     );
 
-    // 2) Low stock alerts: stock_quantity <= reorder_level
+    //Low stock alerts: stock_quantity <= reorder_level
     final lowRes =
     await supabase.from('parts').select('stock_quantity, reorder_level');
     final lowStockCount = (lowRes as List).where((row) {
@@ -25,7 +25,7 @@ class InventoryService {
       return stock <= reorder;
     }).length;
 
-    // 3) Pending procurement
+    // Pending procurement
     final pendingRes = await supabase
         .from('procurement_requests')
         .select()
@@ -39,7 +39,7 @@ class InventoryService {
     );
   }
 
-  /// 🔹 Fetch all parts (for inventory list)
+  // Fetch all parts (for inventory list)
   Future<List<Part>> fetchParts() async {
     final res = await supabase.from('parts').select();
     return (res as List)
@@ -47,7 +47,7 @@ class InventoryService {
         .toList();
   }
 
-  /// 🔹 Add a procurement request
+  //Add a procurement request
   Future<void> requestMore(
       String partId,
       int qty, {
@@ -60,7 +60,7 @@ class InventoryService {
     });
   }
 
-  /// 🔹 Realtime dashboard stream
+  //Realtime dashboard stream - use stream
   Stream<InventorySummary> streamInventorySummary() {
     // Two streams: parts + procurement_requests
     final partsStream =

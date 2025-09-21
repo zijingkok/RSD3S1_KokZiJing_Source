@@ -36,7 +36,6 @@ class ProcurementService {
     return List<Map<String, dynamic>>.from(res as List);
   }
 
-  /// Optional: map {part_id: part_name} (used for realtime stream join workaround)
   Future<Map<String, String>> _partsNameMap() async {
     final parts = await fetchParts();
     return {
@@ -59,7 +58,7 @@ class ProcurementService {
         .toList();
   }
 
-  /// Stream requests. Realtime doesn't support joins → enrich client-side.
+  /// Stream requests
   Stream<List<ProcurementRequest>> streamRequests() {
     return _client
         .from('procurement_requests')
@@ -77,7 +76,7 @@ class ProcurementService {
         });
   }
 
-  /// Fetch raw rows (no join) if you ever need the base model
+  /// Fetch raw rows (no join)
   Future<List<ProcurementRequest>> fetchRawRequests() async {
     final res = await _client
         .from('procurement_requests')
@@ -89,10 +88,10 @@ class ProcurementService {
         .toList();
   }
 
-  /// Update status (e.g., Pending → Approved → Ordered)
+  /// Update status
   Future<void> updateStatus({
     required String requestId,
-    required String status, // 'Pending' | 'Approved' | 'Ordered'
+    required String status, // 'Pending' | 'Approved' | 'Arrived'
   }) async {
     await _client
         .from('procurement_requests')
@@ -100,7 +99,7 @@ class ProcurementService {
         .eq('request_id', requestId);
   }
 
-  /// Update status (e.g., Pending → Approved → Ordered → Arrived)
+  /// Update status
   Future<void> updateQuantity({
     required String requestId,
     required String status,

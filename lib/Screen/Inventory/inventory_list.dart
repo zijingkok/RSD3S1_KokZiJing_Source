@@ -370,6 +370,8 @@ class _FilterPill extends StatelessWidget {
   }
 }
 
+//inventory card -----------------------------
+
 class _InventoryCard extends StatelessWidget {
   final Part item;
   const _InventoryCard({required this.item});

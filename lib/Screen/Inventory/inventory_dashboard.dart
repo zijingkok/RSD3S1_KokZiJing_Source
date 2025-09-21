@@ -18,7 +18,7 @@ class _InventoryDashboardState extends State<InventoryDashboard> {
   void initState() {
     super.initState();
     _service = InventoryService();
-    _summaryStream = _service.streamInventorySummary(); // 👈 stable stream
+    _summaryStream = _service.streamInventorySummary(); // stable stream use for realtime
   }
 
   @override
@@ -67,7 +67,7 @@ class _InventoryDashboardState extends State<InventoryDashboard> {
               ),
               const SizedBox(height: 12),
 
-              // 🔹 Realtime cards
+              // Realtime cards------------------------------------
               _OverviewCard(
                 icon: Icons.inventory_2_outlined,
                 title: 'Total Stocked Parts',
@@ -129,6 +129,12 @@ class _InventoryDashboardState extends State<InventoryDashboard> {
   }
 }
 
+
+
+//Ui design --------------------------------
+
+
+//Overview card ------------------------
 class _OverviewCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -203,6 +209,8 @@ class _OverviewCard extends StatelessWidget {
   }
 }
 
+
+//action card -------------------
 class _ActionCard extends StatelessWidget {
   final IconData leading;
   final String title;

@@ -156,6 +156,8 @@ class _PartUsageHistoryScreenState extends State<PartUsageHistoryScreen> {
   }
 }
 
+
+//UI - DESIGN--------------------------------------------------------------
 class _KpiCard extends StatelessWidget {
   final String label;
   final String value;

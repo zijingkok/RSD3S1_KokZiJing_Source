@@ -5,9 +5,9 @@ class ProcurementRequest {
   final String partId;       // part_id (FK)
   final int quantity;        // quantity
   final String priority;     // Low | Normal | Urgent
-  final String status;       // Pending | Approved | Ordered
+  final String status;       // Pending | Approved | Arrived
   final DateTime requestDate;
-  final String? partName;    // optional, only available if joined with parts table
+  final String? partName;
 
   const ProcurementRequest({
     required this.id,

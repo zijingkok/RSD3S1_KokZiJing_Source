@@ -5,6 +5,8 @@ import 'inventory_part_usage.dart';
 import 'inventory_request.dart';
 import 'inventory_request_status.dart';
 
+
+//Use for inventory navigation -----------------------------------------
 class InventoryModule extends StatelessWidget {
   const InventoryModule({super.key});
 
