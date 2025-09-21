@@ -14,7 +14,7 @@ class JobModule extends StatelessWidget {
         appBar: AppBar(
 
           elevation: 0,
-          title: const Text('Work Orders', style: TextStyle(fontWeight: FontWeight.w600)),
+          title: const Text('Work Scheduler', style: TextStyle(fontWeight: FontWeight.w600)),
           bottom: const TabBar(
               // keep tab highlight consistent
             labelStyle: TextStyle(fontWeight: FontWeight.w600),
