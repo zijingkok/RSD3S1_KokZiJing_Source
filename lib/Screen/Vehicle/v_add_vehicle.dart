@@ -523,7 +523,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Make, Model, and Year will be automatically generated',
+                          'Make, Model, and Year will be automatically generated based on VIN number',
                           style: TextStyle(
                             color: Colors.blue.shade700,
                             fontSize: 13,

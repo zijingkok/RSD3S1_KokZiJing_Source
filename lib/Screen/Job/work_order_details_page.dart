@@ -35,7 +35,7 @@ class _WorkOrderDetailsPageState extends State<WorkOrderDetailsPage> {
 
   Color _statusColor(WorkOrderStatus s) {
     switch (s) {
-      case WorkOrderStatus.accepted:   return Colors.blueAccent;
+      case WorkOrderStatus.scheduled:   return Colors.blueAccent;
       case WorkOrderStatus.inProgress: return Colors.orange;
       case WorkOrderStatus.onHold:     return Colors.grey;
       case WorkOrderStatus.completed:  return Colors.green;
@@ -45,7 +45,7 @@ class _WorkOrderDetailsPageState extends State<WorkOrderDetailsPage> {
 
   String _statusText(WorkOrderStatus s) {
     switch (s) {
-      case WorkOrderStatus.accepted:   return 'Accepted';
+      case WorkOrderStatus.scheduled:   return 'Scheduled';
       case WorkOrderStatus.inProgress: return 'In Progress';
       case WorkOrderStatus.onHold:     return 'On Hold';
       case WorkOrderStatus.completed:  return 'Completed';
@@ -191,7 +191,7 @@ class _WorkOrderDetailsPageState extends State<WorkOrderDetailsPage> {
                       ),
                     ],
                   ),
-                ] else if (wo.status == WorkOrderStatus.accepted || wo.status == WorkOrderStatus.onHold) ...[
+                ] else if (wo.status == WorkOrderStatus.scheduled || wo.status == WorkOrderStatus.onHold) ...[
                   // Reassign + Reschedule
                   Row(
                     children: [
@@ -295,7 +295,7 @@ class _WorkOrderDetailsPageState extends State<WorkOrderDetailsPage> {
                     items: WorkOrderStatus.values.map((s) {
                       final label = () {
                         switch (s) {
-                          case WorkOrderStatus.accepted:   return 'Accepted';
+                          case WorkOrderStatus.scheduled:   return 'Scheduled';
                           case WorkOrderStatus.inProgress: return 'In Progress';
                           case WorkOrderStatus.onHold:     return 'On Hold';
                           case WorkOrderStatus.completed:  return 'Completed';
