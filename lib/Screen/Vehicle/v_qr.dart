@@ -737,11 +737,11 @@ class _VehicleQRPageState extends State<VehicleQRPage> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'â€¢ Print QR codes on durable labels for vehicle keys\n'
-                                'â€¢ Use "Vehicle ID Only" for secure internal tracking\n'
-                                'â€¢ "Service Tag" format works best for workshop bay management\n'
-                                'â€¢ Include vehicle image for easy visual identification\n'
-                                'â€¢ Share with customers for real-time service updates',
+                            'Print QR codes on durable labels for vehicle keys\n'
+                                'Use "Vehicle ID Only" for secure internal tracking\n'
+                                '"Service Tag" format works best for workshop bay management\n'
+                                'Include vehicle image for easy visual identification\n'
+                                'Share with customers for real-time service updates',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.blue.shade700,
