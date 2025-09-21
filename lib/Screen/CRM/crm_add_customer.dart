@@ -30,6 +30,27 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
   static const _primary = Color(0xFF1E88E5);
   static const _primaryDark = Color(0xFF1565C0);
 
+  String? _validateName(String? v) {
+    final s = v?.trim() ?? '';
+    if (s.isEmpty) return 'Name is required';
+    if (!RegExp(r'^[A-Za-z ]+$').hasMatch(s)) {
+      return 'Name must contain alphabets only';
+    }
+    return null;
+  }
+
+  String? _validateMyPhone(String? v) {
+    final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 10) return 'Phone must be at least 10 digits';
+
+    if (digits.startsWith('011')) {
+      if (digits.length != 11) return 'Numbers starting with 011 must have 11 digits';
+    } else {
+      if (digits.length != 10) return 'Phone must have 10 digits (except 011 = 11 digits)';
+    }
+    return null;
+  }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -147,18 +168,27 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
                             controller: _nameCtrl,
                             decoration: _dec('Full Name'),
                             textInputAction: TextInputAction.next,
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
+                            ],
+                            validator: _validateName,
                           ),
+
                           const SizedBox(height: 14),
 
                           // Phone
-                          TextFormField(
-                            controller: _phoneCtrl,
-                            keyboardType: TextInputType.phone,
-                            textInputAction: TextInputAction.next,
-                            decoration: _dec('Phone Number'),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Phone is required' : null,
-                          ),
+                        TextFormField(
+                          controller: _phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          textInputAction: TextInputAction.next,
+                          decoration: _dec('Phone Number').copyWith(counterText: ''),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(11), // max for 011 numbers
+                          ],
+                          validator: _validateMyPhone,
+                        ),
+
                           const SizedBox(height: 18),
 
                           // Gender segmented

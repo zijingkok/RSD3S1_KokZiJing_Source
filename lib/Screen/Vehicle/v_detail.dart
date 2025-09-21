@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '/models/vehicle.dart';
 import 'v_edit_vehicle.dart';
 import 'v_qr.dart';
+import '../Vehicle/v_detail.dart';
 
 class VehicleDetailPage extends StatefulWidget {
   final Vehicle vehicle;

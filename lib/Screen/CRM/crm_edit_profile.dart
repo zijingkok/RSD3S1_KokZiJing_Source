@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../Models/customer.dart';
 
 /// Edit DB Customer
@@ -11,16 +12,16 @@ class EditCustomerPage extends StatefulWidget {
 }
 
 class _EditCustomerPageState extends State<EditCustomerPage> {
+  final _formKey = GlobalKey<FormState>();
+
   late final TextEditingController _fullName;
   late final TextEditingController _icNo;
   late final TextEditingController _phone;
   late final TextEditingController _email;
   late final TextEditingController _address;
 
-  // gender is nullable in DB; default to '' (blank)
   late String _gender;
 
-  // ---- Shared palette  ----
   static const _bg = Color(0xFFF5F7FA);
   static const _ink = Color(0xFF1D2A32);
   static const _muted = Color(0xFF6A7A88);
@@ -33,11 +34,11 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
   void initState() {
     super.initState();
     _fullName = TextEditingController(text: widget.customer.fullName);
-    _icNo     = TextEditingController(text: widget.customer.icNo ?? '');
-    _phone    = TextEditingController(text: widget.customer.phone ?? '');
+    _icNo     = TextEditingController(text: _fmtIc(widget.customer.icNo ?? ''));
+    _phone    = TextEditingController(text: _fmtPhone(widget.customer.phone ?? ''));
     _email    = TextEditingController(text: widget.customer.email ?? '');
     _address  = TextEditingController(text: widget.customer.address ?? '');
-    _gender   = widget.customer.gender ?? ''; // '', 'Male', 'Female', 'Other'
+    _gender   = widget.customer.gender ?? '';
   }
 
   @override
@@ -93,6 +94,22 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: _primary, width: 1.5),
         ),
+        // 🔴 Make validation messages more visible
+        errorStyle: const TextStyle(
+          color: Color(0xFFD32F2F),
+          fontSize: 13.5,
+          fontWeight: FontWeight.w800,
+          height: 1.2,
+        ),
+        errorMaxLines: 2,
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFD32F2F), width: 1.2),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFD32F2F), width: 1.5),
+        ),
       ),
       snackBarTheme: base.snackBarTheme.copyWith(
         behavior: SnackBarBehavior.floating,
@@ -103,28 +120,93 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
     );
   }
 
+  // ---------- Display formatters ----------
+  String _fmtIc(String raw) {
+    final d = raw.replaceAll(RegExp(r'\D'), '');
+    if (d.isEmpty) return '';
+    final p1 = d.substring(0, d.length.clamp(0, 6));
+    final p2 = d.length > 6 ? d.substring(6, d.length.clamp(0, 8)) : '';
+    final p3 = d.length > 8 ? d.substring(8, d.length.clamp(0, 12)) : '';
+    return [
+      if (p1.isNotEmpty) p1,
+      if (p2.isNotEmpty) '-$p2',
+      if (p3.isNotEmpty) '-$p3',
+    ].join();
+  }
+
+  String _fmtPhone(String raw) {
+    final d = raw.replaceAll(RegExp(r'\D'), '');
+    if (d.isEmpty) return '';
+    if (d.length <= 3) return d;
+    if (d.length <= 7) return '${d.substring(0, 3)}-${d.substring(3)}';
+    final p1 = d.substring(0, 3);
+    final p2 = d.substring(3, 7);
+    final p3 = d.substring(7);
+    return '$p1-$p2 $p3';
+  }
+
+  String _digitsOnly(String s) => s.replaceAll(RegExp(r'\D'), '');
+
+  // ---------- Validators ----------
+  String? _vName(String? v) {
+    final s = v?.trim() ?? '';
+    if (s.isEmpty) return 'Full Name is required';
+    if (!RegExp(r'^[A-Za-z ]+$').hasMatch(s)) return 'Full Name must contain alphabets only';
+    return null;
+  }
+
+  String? _vIc(String? v) {
+    final digits = _digitsOnly(v ?? '');
+    if (digits.isEmpty) return 'IC Number is required';
+    if (digits.length != 12) return 'IC must be 12 digits (format xxxxxx-xx-xxxx)';
+    return null;
+  }
+
+  String? _vPhone(String? v) {
+    final digits = _digitsOnly(v ?? '');
+    if (digits.isEmpty) return 'Phone is required';
+    if (digits.length < 10) return 'Phone must have at least 10 digits';
+    if (digits.startsWith('011')) {
+      if (digits.length != 11) return 'Numbers starting with 011 must have 11 digits';
+    } else {
+      if (digits.length != 10) return 'Phone must have 10 digits (except 011 = 11 digits)';
+    }
+    return null;
+  }
+
+  bool _isValidEmail(String s) => RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(s.trim());
+  String? _vEmail(String? v) {
+    final s = (v ?? '').trim();
+    if (s.isEmpty) return 'Email is required';
+    if (!_isValidEmail(s)) return 'Invalid email';
+    return null;
+  }
+
+  // ---------- Save ----------
   void _save() {
-    // minimal validation — require full name and phone
-    if (_fullName.text.trim().isEmpty || _phone.text.trim().isEmpty) {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      // Optional: nudge user
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in Full Name and Phone')),
+        const SnackBar(content: Text('Please fix the highlighted fields')),
       );
       return;
     }
 
+    final icDigits = _digitsOnly(_icNo.text);
+
     final updated = Customer(
       id: widget.customer.id,
       fullName: _fullName.text.trim(),
-      icNo: _icNo.text.trim().isEmpty ? null : _icNo.text.trim(),
-      phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
-      email: _email.text.trim().isEmpty ? null : _email.text.trim(),
+      icNo: icDigits,                        // store 12 digits
+      phone: _phone.text.trim(),             // keep formatted for display
+      email: _email.text.trim(),
       gender: _gender.isEmpty ? null : _gender,
-      address: _address.text.trim().isEmpty ? null : _address.text.trim(),
+      address: _address.text.trim().isEmpty ? null : _address.text.trim(), // optional
       createdAt: widget.customer.createdAt,
       updatedAt: widget.customer.updatedAt,
     );
 
-    Navigator.pop(context, updated); // caller handles CustomerService.update(...)
+    Navigator.pop(context, updated);
   }
 
   @override
@@ -145,103 +227,122 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600), // slightly smaller form
+                constraints: const BoxConstraints(maxWidth: 600),
                 child: Container(
                   decoration: BoxDecoration(
                     color: _card,
                     borderRadius: BorderRadius.circular(20),
                     border: const Border.fromBorderSide(BorderSide(color: _stroke)),
-                    boxShadow: const [
-                      BoxShadow(color: Color(0x0F000000), blurRadius: 22, offset: Offset(0, 10)),
-                    ],
+                    boxShadow: const [BoxShadow(color: Color(0x0F000000), blurRadius: 22, offset: Offset(0, 10))],
                   ),
                   padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Edit Profile Details',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 18),
+                  child: Form(
+                    key: _formKey,
+                    autovalidateMode: AutovalidateMode.onUserInteraction, // show red message as user types
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Edit Profile Details',
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 18),
 
-                      const _FieldLabel('Full Name'),
-                      TextField(
-                        controller: _fullName,
-                        textAlignVertical: TextAlignVertical.center,
-                        decoration: const InputDecoration(hintText: 'Full name'),
-                      ),
-                      const SizedBox(height: 16),
+                        const _FieldLabel('Full Name'),
+                        TextFormField(
+                          controller: _fullName,
+                          textAlignVertical: TextAlignVertical.center,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
+                          ],
+                          decoration: const InputDecoration(hintText: 'Full name'),
+                          validator: _vName,
+                        ),
+                        const SizedBox(height: 16),
 
-                      const _FieldLabel('IC No'),
-                      TextField(
-                        controller: _icNo,
-                        textAlignVertical: TextAlignVertical.center,
-                        decoration: const InputDecoration(hintText: 'e.g. 010203-10-1234'),
-                      ),
-                      const SizedBox(height: 16),
+                        const _FieldLabel('IC No'),
+                        TextFormField(
+                          controller: _icNo,
+                          keyboardType: TextInputType.number,
+                          textAlignVertical: TextAlignVertical.center,
+                          inputFormatters: [
+                            _NricTextInputFormatter(),           // live 6-2-4
+                            LengthLimitingTextInputFormatter(14) // 12 digits + 2 dashes
+                          ],
+                          decoration: const InputDecoration(hintText: 'e.g. 010203-10-1234'),
+                          validator: _vIc,
+                        ),
+                        const SizedBox(height: 16),
 
-                      const _FieldLabel('Phone'),
-                      TextField(
-                        controller: _phone,
-                        keyboardType: TextInputType.phone,
-                        textAlignVertical: TextAlignVertical.center,
-                        decoration: const InputDecoration(hintText: '012-345 6789'),
-                      ),
-                      const SizedBox(height: 16),
+                        const _FieldLabel('Phone'),
+                        TextFormField(
+                          controller: _phone,
+                          keyboardType: TextInputType.phone,
+                          textAlignVertical: TextAlignVertical.center,
+                          inputFormatters: [
+                            _MyPhoneDisplayFormatter(),           // 3-4 <space> rest
+                            LengthLimitingTextInputFormatter(14),
+                          ],
+                          decoration: const InputDecoration(hintText: '012-3456 789'),
+                          validator: _vPhone,
+                        ),
+                        const SizedBox(height: 16),
 
-                      const _FieldLabel('Email'),
-                      TextField(
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        textAlignVertical: TextAlignVertical.center,
-                        decoration: const InputDecoration(hintText: 'name@example.com'),
-                      ),
-                      const SizedBox(height: 16),
+                        const _FieldLabel('Email'),
+                        TextFormField(
+                          controller: _email,
+                          keyboardType: TextInputType.emailAddress,
+                          textAlignVertical: TextAlignVertical.center,
+                          decoration: const InputDecoration(hintText: 'name@example.com'),
+                          validator: _vEmail,
+                        ),
+                        const SizedBox(height: 16),
 
-                      const _FieldLabel('Gender'),
-                      DropdownButtonFormField<String>(
-                        value: _gender.isEmpty ? null : _gender,
-                        isExpanded: true,
-                        icon: const SizedBox.shrink(), // keep it minimal (no arrow icon)
-                        items: const [
-                          DropdownMenuItem(value: 'Male', child: Text('Male')),
-                          DropdownMenuItem(value: 'Female', child: Text('Female')),
-                          DropdownMenuItem(value: 'Other', child: Text('Other')),
-                        ],
-                        onChanged: (v) => setState(() => _gender = v ?? ''),
-                        decoration: const InputDecoration(hintText: 'Select gender'),
-                      ),
-                      const SizedBox(height: 16),
+                        const _FieldLabel('Gender'),
+                        DropdownButtonFormField<String>(
+                          value: _gender.isEmpty ? null : _gender,
+                          isExpanded: true,
+                          icon: const SizedBox.shrink(),
+                          items: const [
+                            DropdownMenuItem(value: 'Male', child: Text('Male')),
+                            DropdownMenuItem(value: 'Female', child: Text('Female')),
+                            DropdownMenuItem(value: 'Other', child: Text('Other')),
+                          ],
+                          onChanged: (v) => setState(() => _gender = v ?? ''),
+                          decoration: const InputDecoration(hintText: 'Select gender'),
+                          // If you want gender required, add validator here. Currently optional per your note.
+                        ),
+                        const SizedBox(height: 16),
 
-                      const _FieldLabel('Address'),
-                      TextField(
-                        controller: _address,
-                        minLines: 2,
-                        maxLines: 4,
-                        textAlignVertical: TextAlignVertical.top,
-                        decoration: const InputDecoration(hintText: 'Street, city, state, postcode'),
-                      ),
+                        const _FieldLabel('Address (optional)'),
+                        TextFormField(
+                          controller: _address,
+                          minLines: 2,
+                          maxLines: 4,
+                          textAlignVertical: TextAlignVertical.top,
+                          decoration: const InputDecoration(hintText: 'Street, city, state, postcode'),
+                          // optional -> no validator
+                        ),
 
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      // Actions
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _PrimaryButton(
-                              label: 'Save',
-                              onPressed: _save,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _PrimaryButton(
+                                label: 'Save',
+                                onPressed: _save,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _SoftButton(
-                              label: 'Cancel',
-                              onTap: () => Navigator.pop(context),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _SoftButton(
+                                label: 'Cancel',
+                                onTap: () => Navigator.pop(context),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -253,7 +354,7 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
   }
 }
 
-/* ---------- Small UI bits (consistent with other screens) ---------- */
+/* ---------- Small UI bits ---------- */
 
 class _FieldLabel extends StatelessWidget {
   final String text;
@@ -345,5 +446,120 @@ class _SoftButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/* ---------- Live input formatters ---------- */
+
+/// Malaysian NRIC live input formatter: xxxxxx-xx-xxxx (6-2-4)
+class _NricTextInputFormatter extends TextInputFormatter {
+  static final _nonDigits = RegExp(r'\D');
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    var digits = newValue.text.replaceAll(_nonDigits, '');
+    if (digits.length > 12) digits = digits.substring(0, 12);
+
+    final sb = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      sb.write(digits[i]);
+      if (i == 5 && digits.length > 6) sb.write('-');
+      if (i == 7 && digits.length > 8) sb.write('-');
+    }
+    final formatted = sb.toString();
+
+    final selectionIndex = newValue.selection.end;
+    final digitsBeforeCursor = _countDigitsBeforeIndex(newValue.text, selectionIndex);
+    final newCursor = _positionForDigitIndex(formatted, digitsBeforeCursor);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: newCursor),
+      composing: TextRange.empty,
+    );
+  }
+
+  int _countDigitsBeforeIndex(String text, int index) {
+    var count = 0;
+    for (var i = 0; i < index && i < text.length; i++) {
+      final cu = text.codeUnitAt(i);
+      if (cu >= 48 && cu <= 57) count++;
+    }
+    return count;
+  }
+
+  int _positionForDigitIndex(String formatted, int digitCount) {
+    if (digitCount <= 0) return 0;
+    var seen = 0;
+    for (var i = 0; i < formatted.length; i++) {
+      final cu = formatted.codeUnitAt(i);
+      final isDigit = cu >= 48 && cu <= 57;
+      if (isDigit) {
+        seen++;
+        if (seen == digitCount) return i + 1;
+      }
+    }
+    return formatted.length;
+  }
+}
+
+/// Phone display formatter: 3-4 <space> rest (e.g., 012-3456 789[0])
+class _MyPhoneDisplayFormatter extends TextInputFormatter {
+  static final _nonDigits = RegExp(r'\D');
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    var d = newValue.text.replaceAll(_nonDigits, '');
+
+    String formatted;
+    if (d.length <= 3) {
+      formatted = d;
+    } else if (d.length <= 7) {
+      formatted = '${d.substring(0, 3)}-${d.substring(3)}';
+    } else {
+      final p1 = d.substring(0, 3);
+      final p2 = d.substring(3, 7);
+      final p3 = d.substring(7);
+      formatted = '$p1-$p2 $p3';
+    }
+
+    final selectionIndex = newValue.selection.end;
+    final digitsBeforeCursor = _countDigitsBeforeIndex(newValue.text, selectionIndex);
+    final newCursor = _positionForDigitIndex(formatted, digitsBeforeCursor);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: newCursor),
+      composing: TextRange.empty,
+    );
+  }
+
+  int _countDigitsBeforeIndex(String text, int index) {
+    var count = 0;
+    for (var i = 0; i < index && i < text.length; i++) {
+      final cu = text.codeUnitAt(i);
+      if (cu >= 48 && cu <= 57) count++;
+    }
+    return count;
+  }
+
+  int _positionForDigitIndex(String formatted, int digitCount) {
+    if (digitCount <= 0) return 0;
+    var seen = 0;
+    for (var i = 0; i < formatted.length; i++) {
+      final cu = formatted.codeUnitAt(i);
+      final isDigit = cu >= 48 && cu <= 57;
+      if (isDigit) {
+        seen++;
+        if (seen == digitCount) return i + 1;
+      }
+    }
+    return formatted.length;
   }
 }
