@@ -22,9 +22,14 @@ class WorkOrderStore extends ChangeNotifier {
   }
 
   Future<void> setStatus(String id, WorkOrderStatus status) async {
+    final current = byId(id);
+    if (current != null && current.status == WorkOrderStatus.completed) {
+      return; // read-only once completed
+    }
     await _svc.updateStatus(workOrderId: id, status: status);
     await fetch();
   }
+
 
   Future<void> reschedule(String id, DateTime newStart) async {
     await _svc.reschedule(workOrderId: id, newStart: newStart);
