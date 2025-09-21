@@ -1,15 +1,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../state/work_order_store.dart';
-import '../../state/mechanic_store.dart';
-import '../../Models/work_order.dart';
-import '../../Models/mechanic.dart';
-import 'job_workload_detail_page.dart';
+import 'package:workshop_management/state/work_order_store.dart';
+import 'package:workshop_management/state/mechanic_store.dart';
+import 'package:workshop_management/Models/work_order.dart';
+import 'package:workshop_management/Models/mechanic.dart';
+import 'package:workshop_management/Screen/Job/job_workload_detail_page.dart';
 
 enum _Window { overdue, today, week, month, all }
 
-/// Workload tab (Default math + color cues).
+/// Workload tab (Default math + color cues + near-due + prioritized sorting + pull-to-refresh).
 class JobWorkloadTab extends StatefulWidget {
   const JobWorkloadTab({super.key});
   @override
@@ -24,7 +24,7 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
     switch (s) {
       case WorkOrderStatus.completed:
         return false;
-    // keep onHold counted for baseline; change here if you want to exclude
+    // Keep these counted for baseline
       case WorkOrderStatus.onHold:
       case WorkOrderStatus.unassigned:
       case WorkOrderStatus.scheduled:
@@ -38,14 +38,13 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
     final day0 = DateTime(now.year, now.month, now.day);
     switch (w) {
       case _Window.overdue:
-      // everything strictly before today
         return (DateTime(1970), day0);
       case _Window.today:
         return (day0, day0.add(const Duration(days: 1)));
       case _Window.week:
-        return (day0, day0.add(const Duration(days: 7))); // today + 7
+        return (day0, day0.add(const Duration(days: 8))); // today + 7
       case _Window.month:
-        return (day0, day0.add(const Duration(days: 30)));
+        return (day0, day0.add(const Duration(days: 31)));
       case _Window.all:
         return (DateTime(1970), DateTime(9999, 12, 31));
     }
@@ -58,6 +57,18 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
     return Colors.green;
   }
 
+  Future<void> _handleRefresh(BuildContext context) async {
+    final ws = context.read<WorkOrderStore>() as dynamic;
+    final ms = context.read<MechanicStore>() as dynamic;
+    Future<void> _tryAll(dynamic obj) async {
+      try { final r = obj.refresh(); if (r is Future) await r; return; } catch (_) {}
+      try { final r = obj.fetch();   if (r is Future) await r; return; } catch (_) {}
+      try { final r = obj.load();    if (r is Future) await r; return; } catch (_) {}
+      try { final r = obj.sync();    if (r is Future) await r; return; } catch (_) {}
+    }
+    await Future.wait([_tryAll(ws), _tryAll(ms)]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final woStore   = context.watch<WorkOrderStore>();
@@ -65,10 +76,10 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
     final allOrders = woStore.workOrders;
     final mechs     = mechStore.mechanics.where((m) => m.active).toList();
 
-    // 👉 date window from selected chip
+    // date window from selected chip
     final now = DateTime.now();
     final (start, end) = _windowDates(now, _sel);
-    final days = (end.difference(start).inDays).clamp(1, 365); // at least 1
+    final days = (end.difference(start).inDays).clamp(1, 365);
 
     // FILTER first (status + window)
     final filtered = allOrders.where((w) {
@@ -78,7 +89,6 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
       if (_sel == _Window.all) return true;
 
       if (_sel == _Window.overdue) {
-        // overdue = scheduled before today; include null? usually no
         if (d == null) return false;
         return d.isBefore(end); // end = today
       }
@@ -87,19 +97,25 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
       return !d.isBefore(start) && d.isBefore(end);
     }).toList();
 
-    // Build an overdue map across ALL open orders (not limited to window)
+    // Build overdue and near-due across ALL open orders (global risk view)
     final today = DateTime(now.year, now.month, now.day);
+    final nearDueCutoff = today.add(const Duration(hours: 48));
     final Map<String, int> overdueMap = {};
+    final Map<String, int> nearDueMap = {};
     for (final w in allOrders) {
       if (!_isOpenStatus(w.status)) continue;
       final d = w.scheduledDate;
-      if (d == null || !d.isBefore(today)) continue;
       final idRaw = (w.assignedMechanicId ?? '').trim();
       final bucket = idRaw.isEmpty ? 'unassigned' : idRaw;
-      overdueMap[bucket] = (overdueMap[bucket] ?? 0) + 1;
+
+      if (d != null && d.isBefore(today)) {
+        overdueMap[bucket] = (overdueMap[bucket] ?? 0) + 1;
+      } else if (d != null && !d.isBefore(today) && d.isBefore(nearDueCutoff)) {
+        nearDueMap[bucket] = (nearDueMap[bucket] ?? 0) + 1;
+      }
     }
 
-    // === aggregate planned hours/counts per mechanicId (in window) ===
+    // Aggregate planned hours/counts per mechanic (in window)
     final Map<String, _Agg> agg = {};
     for (final wo in filtered) {
       final idRaw = (wo.assignedMechanicId ?? '').trim();
@@ -112,7 +128,7 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
     // Active mechanic IDs set
     final activeIds = mechs.map((m) => m.id.trim()).toSet();
 
-    // === build rows (mechanics) ===
+    // Build rows (mechanics)
     final List<_Row> mechRows = [];
     for (final m in mechs) {
       final key = m.id.trim();
@@ -120,6 +136,9 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
       final capPerDay = (m.dailyCapacityHours).toDouble();
       final capacityWindow = (capPerDay <= 0 ? 8.0 : capPerDay) * days;
       final overdue = overdueMap[key] ?? 0;
+      final nearDue = nearDueMap[key] ?? 0;
+      final util = capacityWindow > 0 ? (a.hours / capacityWindow) : 0.0;
+
       mechRows.add(_Row(
         label: m.name,
         mechanicId: m.id,
@@ -129,12 +148,13 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
         sortKey: m.name.toLowerCase(),
         isUnassigned: false,
         overdue: overdue,
+        nearDue: nearDue,
+        util: util,
       ));
       agg.remove(key); // consumed
     }
-    mechRows.sort((a, b) => a.sortKey.compareTo(b.sortKey));
 
-    // === merge leftovers to Unassigned ===
+    // Merge leftovers to Unassigned
     double unassignedHours = 0.0;
     int unassignedCount = 0;
     for (final e in agg.entries) {
@@ -143,93 +163,106 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
       unassignedHours += a.hours;
       unassignedCount += a.count;
     }
-    // overdue for unassigned = explicit unassigned + stray ids not in active
+    // Overdue/nearDue for unassigned = explicit unassigned + stray ids not in active
     int unassignedOverdue = overdueMap['unassigned'] ?? 0;
+    int unassignedNearDue = nearDueMap['unassigned'] ?? 0;
     overdueMap.forEach((k, v) {
-      if (k != 'unassigned' && !activeIds.contains(k)) {
-        unassignedOverdue += v;
-      }
+      if (k != 'unassigned' && !activeIds.contains(k)) unassignedOverdue += v;
+    });
+    nearDueMap.forEach((k, v) {
+      if (k != 'unassigned' && !activeIds.contains(k)) unassignedNearDue += v;
     });
 
-    final totalCards = mechRows.length + (unassignedCount > 0 ? 1 : 0);
+    // Prioritized sort
+    mechRows.sort((a, b) {
+      if (b.overdue != a.overdue) return b.overdue.compareTo(a.overdue);
+      if (b.nearDue != a.nearDue) return b.nearDue.compareTo(a.nearDue);
+      if (b.util != a.util) return b.util.compareTo(a.util);
+      return a.sortKey.compareTo(b.sortKey);
+    });
 
-    // === UI ===
-    Widget chips() {
-      Widget chip(String label, _Window w) => ChoiceChip(
-        label: Text(label),
-        selected: _sel == w,
-        onSelected: (_) => setState(() => _sel = w),
-      );
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            chip('Overdue', _Window.overdue),
-            const SizedBox(width: 8),
-            chip('Today', _Window.today),
-            const SizedBox(width: 8),
-            chip('7 days', _Window.week),
-            const SizedBox(width: 8),
-            chip('30 days', _Window.month),
-            const SizedBox(width: 8),
-            chip('All', _Window.all),
-          ],
-        ),
-      );
-    }
+    // Build list items
+    final List<Widget> items = [
+      _chips(),
+      const SizedBox(height: 12),
+    ];
 
-    if (totalCards == 0) {
-      return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            chips(),
-            const SizedBox(height: 12),
-            const Expanded(child: Center(child: Text('No work orders for this window.'))),
-          ],
-        ),
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        chips(),
-        const SizedBox(height: 12),
-
-        if (unassignedCount > 0) ...[
-          const _SectionHeader('Unassigned jobs'),
-          const SizedBox(height: 8),
-          _WorkloadCard(
-            row: _Row(
-              label: 'Unassigned',
-              mechanicId: null,
-              hours: unassignedHours,
-              count: unassignedCount,
-              capacityWindow: 8.0 * days,
-              sortKey: 'zzz_unassigned',
-              isUnassigned: true,
-              overdue: unassignedOverdue,
-            ),
-            windowStart: start,
-            windowEnd: end,
-            windowType: _sel.name,
+    if (unassignedCount > 0) {
+      items.addAll([
+        const _SectionHeader('Unassigned jobs'),
+        const SizedBox(height: 8),
+        _WorkloadCard(
+          row: _Row(
+            label: 'Unassigned',
+            mechanicId: null,
+            hours: unassignedHours,
+            count: unassignedCount,
+            capacityWindow: 8.0 * days,
+            sortKey: 'zzz_unassigned',
+            isUnassigned: true,
+            overdue: unassignedOverdue,
+            nearDue: unassignedNearDue,
+            util: (8.0 * days) > 0 ? (unassignedHours / (8.0 * days)) : 0.0,
           ),
-          const SizedBox(height: 16),
-        ],
+          windowStart: start,
+          windowEnd: end,
+          windowType: _sel.name,
+        ),
+        const SizedBox(height: 16),
+      ]);
+    }
 
-        if (mechRows.isNotEmpty) ...[
-          const _SectionHeader('Active mechanics'),
-          const SizedBox(height: 8),
-          ...mechRows.map((r) => _WorkloadCard(
-            row: r,
-            windowStart: start,
-            windowEnd: end,
-            windowType: _sel.name,
-          )).toList(),
+    if (mechRows.isNotEmpty) {
+      items.addAll([
+        const _SectionHeader('Active mechanics'),
+        const SizedBox(height: 8),
+        ...mechRows.map((r) => _WorkloadCard(
+          row: r,
+          windowStart: start,
+          windowEnd: end,
+          windowType: _sel.name,
+        )),
+      ]);
+    }
+
+    if (mechRows.isEmpty && unassignedCount == 0) {
+      items.add(const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: Text('No work orders for this window. Pull to refresh.')),
+      ));
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _handleRefresh(context),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        children: items,
+      ),
+    );
+  }
+
+  Widget _chips() {
+    Widget chip(String label, _Window w) => ChoiceChip(
+      label: Text(label),
+      selected: _sel == w,
+      onSelected: (_) => setState(() => _sel = w),
+    );
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          chip('Overdue', _Window.overdue),
+          const SizedBox(width: 8),
+          chip('Today', _Window.today),
+          const SizedBox(width: 8),
+          chip('7 days', _Window.week),
+          const SizedBox(width: 8),
+          chip('30 days', _Window.month),
+          const SizedBox(width: 8),
+          chip('All', _Window.all),
         ],
-      ],
+      ),
     );
   }
 }
@@ -303,7 +336,7 @@ class _WorkloadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final util = (row.hours / row.capacityWindow);
+    final util = row.util;
     final color = _barColor(util, row.overdue);
 
     return Card(
@@ -312,7 +345,21 @@ class _WorkloadCard extends StatelessWidget {
         leading: row.isUnassigned
             ? const Icon(Icons.report_gmailerrorred)
             : const Icon(Icons.engineering),
-        title: Text(row.label),
+        title: Row(
+          children: [
+            Expanded(child: Text(row.label)),
+            if (row.nearDue > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Text('Due soon: ${row.nearDue}', style: const TextStyle(fontSize: 12)),
+              ),
+          ],
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -347,6 +394,8 @@ class _Row {
   final String sortKey;
   final bool isUnassigned;
   final int overdue;
+  final int nearDue;
+  final double util;
   _Row({
     required this.label,
     required this.capacityWindow,
@@ -355,6 +404,8 @@ class _Row {
     required this.sortKey,
     required this.isUnassigned,
     required this.overdue,
+    required this.nearDue,
+    required this.util,
     this.mechanicId,
   });
 }
