@@ -303,10 +303,10 @@ class _JobTaskTabState extends State<JobTaskTab> {
               onTap: () => setState(() => _filter = WorkOrderStatus.unassigned),
             ),
             _FilterChip(
-              label: "Accepted",
+              label: "Scheduled",
               color: Colors.blueAccent,
-              active: _filter == WorkOrderStatus.accepted,
-              onTap: () => setState(() => _filter = WorkOrderStatus.accepted),
+              active: _filter == WorkOrderStatus.scheduled,
+              onTap: () => setState(() => _filter = WorkOrderStatus.scheduled),
             ),
             _FilterChip(
               label: "In Progress",
@@ -445,7 +445,7 @@ class _WorkOrderTile extends StatelessWidget {
 
   Color _statusColor(WorkOrderStatus s) {
     switch (s) {
-      case WorkOrderStatus.accepted:   return Colors.blueAccent;
+      case WorkOrderStatus.scheduled:   return Colors.blueAccent;
       case WorkOrderStatus.inProgress: return Colors.orange;
       case WorkOrderStatus.onHold:     return Colors.grey;
       case WorkOrderStatus.completed:  return Colors.green;
@@ -455,7 +455,7 @@ class _WorkOrderTile extends StatelessWidget {
 
   String _statusText(WorkOrderStatus s) {
     switch (s) {
-      case WorkOrderStatus.accepted:   return 'Accepted';
+      case WorkOrderStatus.scheduled:   return 'Scheduled';
       case WorkOrderStatus.inProgress: return 'In Progress';
       case WorkOrderStatus.onHold:     return 'On Hold';
       case WorkOrderStatus.completed:  return 'Completed';

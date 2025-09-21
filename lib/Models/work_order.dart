@@ -1,12 +1,12 @@
 // models/work_order.dart
 import 'mechanic.dart';
 
-enum WorkOrderStatus { unassigned, accepted, inProgress, onHold, completed }
+enum WorkOrderStatus { unassigned, scheduled, inProgress, onHold, completed }
 enum WorkOrderPriority { low, normal, high, urgent }
 
 WorkOrderStatus _statusFromString(String? s) {
   switch ((s ?? '').toLowerCase()) {
-    case 'accepted': return WorkOrderStatus.accepted;
+    case 'scheduled': return WorkOrderStatus.scheduled;
     case 'in_progress':
     case 'inprogress': return WorkOrderStatus.inProgress;
     case 'on_hold':
@@ -18,7 +18,7 @@ WorkOrderStatus _statusFromString(String? s) {
 
 String statusToString(WorkOrderStatus s) {
   switch (s) {
-    case WorkOrderStatus.accepted: return 'accepted';
+    case WorkOrderStatus.scheduled: return 'scheduled';
     case WorkOrderStatus.inProgress: return 'in_progress';
     case WorkOrderStatus.onHold: return 'on_hold';
     case WorkOrderStatus.completed: return 'completed';

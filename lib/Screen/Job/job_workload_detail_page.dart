@@ -1,20 +1,18 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../state/work_order_store.dart';
-import '../../state/mechanic_store.dart';
-import '../../Models/work_order.dart';
-import '../../Models/mechanic.dart';
+import 'package:workshop_management/state/work_order_store.dart';
+import 'package:workshop_management/state/mechanic_store.dart';
+import 'package:workshop_management/Models/work_order.dart';
+import 'package:workshop_management/Models/mechanic.dart';
 
 class JobWorkloadDetailPage extends StatelessWidget {
-  final String? mechanicId;   // null when showing Unassigned
-  final String title;         // mechanic name or "Unassigned"
+  final String? mechanicId;
+  final String title;
   final bool isUnassigned;
-
-  // Optional window (passed from tab for consistency)
   final DateTime? windowStart;
   final DateTime? windowEnd;
-  final String? windowType; // just for display/debug
+  final String? windowType;
 
   const JobWorkloadDetailPage({
     super.key,
@@ -26,17 +24,23 @@ class JobWorkloadDetailPage extends StatelessWidget {
     this.windowType,
   });
 
-  // Treat anything not explicitly "done" as open
   bool _isOpenStatus(WorkOrderStatus s) {
     switch (s) {
       case WorkOrderStatus.completed:
         return false;
       case WorkOrderStatus.onHold:
       case WorkOrderStatus.unassigned:
-      case WorkOrderStatus.accepted:
+      case WorkOrderStatus.scheduled:
       case WorkOrderStatus.inProgress:
         return true;
     }
+  }
+
+  Color _barColor(double util, int overdue) {
+    if (overdue > 0) return Colors.red;
+    if (util > 1.0) return Colors.red;
+    if (util >= 0.8) return Colors.orange;
+    return Colors.green;
   }
 
   @override
@@ -47,29 +51,39 @@ class JobWorkloadDetailPage extends StatelessWidget {
     final allOrders = woStore.workOrders;
     final mechanics = mechStore.mechanics;
 
-    // Filter by mechanic/unassigned first
-    List<WorkOrder> orders;
+    List<WorkOrder> scoped;
     if (isUnassigned) {
-      orders = allOrders.where((w) => (w.assignedMechanicId ?? '').trim().isEmpty).toList();
+      scoped = allOrders.where((w) => (w.assignedMechanicId ?? '').trim().isEmpty).toList();
     } else {
       final id = (mechanicId ?? '').trim();
-      orders = allOrders.where((w) => (w.assignedMechanicId ?? '').trim() == id).toList();
+      scoped = allOrders.where((w) => (w.assignedMechanicId ?? '').trim() == id).toList();
     }
 
-    // Apply the same window if provided; else default to week
     final now   = DateTime.now();
     final day0  = DateTime(now.year, now.month, now.day);
     final start = windowStart ?? day0;
     final end   = windowEnd   ?? day0.add(const Duration(days: 8));
+    final days  = (end.difference(start).inDays).clamp(1, 365);
 
-    orders = orders.where((w) {
+    var orders = scoped.where((w) {
       if (!_isOpenStatus(w.status)) return false;
       final d = w.scheduledDate;
+      if (windowType == 'all') return true;
+      if (windowType == 'overdue') {
+        if (d == null) return false;
+        return d.isBefore(day0);
+      }
       if (d == null) return true;
       return !d.isBefore(start) && d.isBefore(end);
     }).toList();
 
-    // Mechanic info (if not unassigned)
+    final today = DateTime(now.year, now.month, now.day);
+    final overdueCount = scoped.where((w) {
+      if (!_isOpenStatus(w.status)) return false;
+      final d = w.scheduledDate;
+      return d != null && d.isBefore(today);
+    }).length;
+
     Mechanic? mech;
     if (!isUnassigned && mechanicId != null) {
       try {
@@ -80,41 +94,56 @@ class JobWorkloadDetailPage extends StatelessWidget {
     }
 
     final totalHours = orders.fold<double>(0.0, (sum, w) => sum + (w.estimatedHours ?? 0).toDouble());
-    final capacity   = (mech?.dailyCapacityHours ?? 8).toDouble().clamp(1, 24);
-    final loadPct    = (totalHours / (isUnassigned ? 8.0 : capacity)).clamp(0.0, 1.0);
+    final capacityPerDay = (mech?.dailyCapacityHours ?? 8).toDouble();
+    final capacityWindow = (capacityPerDay <= 0 ? 8.0 : capacityPerDay) * days;
+    final util = totalHours / capacityWindow;
+    final color = _barColor(util, overdueCount);
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          _SummaryCard(
-            title: title,
-            isUnassigned: isUnassigned,
-            mechanic: mech,
-            orderCount: orders.length,
-            totalHours: totalHours,
-            capacity: isUnassigned ? 8.0 : capacity.toDouble(),
-            loadPct: loadPct,
-            windowStart: start,
-            windowEnd: end,
-            windowType: windowType,
-          ),
-          const SizedBox(height: 12),
-          if (orders.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No work orders to display.'),
+      body: CustomScrollView(
+        slivers: [
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SummaryHeaderDelegate(
+              minExtent: 120,
+              maxExtent: 150,
+              child: _SummaryCard(
+                title: title,
+                isUnassigned: isUnassigned,
+                mechanic: mech,
+                orderCount: orders.length,
+                totalHours: totalHours,
+                capacity: capacityWindow,
+                util: util,
+                color: color,
+                windowStart: start,
+                windowEnd: end,
+                windowType: windowType,
+                overdue: overdueCount,
               ),
-            )
-          else
-            ...orders.map((w) => _OrderTile(order: w)),
-          const SizedBox(height: 24),
+            ),
+          ),
+          SliverList.builder(
+            itemCount: orders.length,
+            itemBuilder: (context, i) => _OrderTile(order: orders[i]),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
     );
   }
+}
+
+class _SummaryHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double minExtent;
+  final double maxExtent;
+  final Widget child;
+  _SummaryHeaderDelegate({required this.minExtent, required this.maxExtent, required this.child});
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => Material(color: Theme.of(context).scaffoldBackgroundColor, child: child);
+  @override
+  bool shouldRebuild(covariant _SummaryHeaderDelegate oldDelegate) => oldDelegate.child != child || oldDelegate.minExtent != minExtent || oldDelegate.maxExtent != maxExtent;
 }
 
 class _SummaryCard extends StatelessWidget {
@@ -124,10 +153,12 @@ class _SummaryCard extends StatelessWidget {
   final int orderCount;
   final double totalHours;
   final double capacity;
-  final double loadPct;
+  final double util;
+  final Color color;
   final DateTime windowStart;
   final DateTime windowEnd;
   final String? windowType;
+  final int overdue;
 
   const _SummaryCard({
     required this.title,
@@ -136,10 +167,12 @@ class _SummaryCard extends StatelessWidget {
     required this.orderCount,
     required this.totalHours,
     required this.capacity,
-    required this.loadPct,
+    required this.util,
+    required this.color,
     required this.windowStart,
     required this.windowEnd,
     this.windowType,
+    required this.overdue,
   });
 
   @override
@@ -161,40 +194,15 @@ class _SummaryCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ]),
-            const SizedBox(height: 12),
-            Text('Window: $startStr → $endStr${windowType != null ? '  ($windowType)' : ''}'),
             const SizedBox(height: 8),
-            if (!isUnassigned && mechanic != null) ...[
-              _KV('Status', mechanic!.active ? 'Active' : 'Inactive'),
-              _KV('Daily capacity', '${capacity.toStringAsFixed(1)} hrs'),
-            ] else ...[
-              const Text('Jobs not yet assigned to any mechanic.'),
-              _KV('Bucket capacity (virtual)', '${capacity.toStringAsFixed(1)} hrs'),
-            ],
-            const SizedBox(height: 12),
-            LinearProgressIndicator(value: loadPct),
+            Text('Window: $startStr → $endStr${windowType != null ? '  (${windowType!})' : ''}'),
             const SizedBox(height: 8),
-            Text('$orderCount orders • ${totalHours.toStringAsFixed(1)} / ${capacity.toStringAsFixed(1)} hrs'),
+            LinearProgressIndicator(value: util.clamp(0.0, 1.0), color: color),
+            const SizedBox(height: 6),
+            Text('$orderCount orders • ${totalHours.toStringAsFixed(1)} / ${capacity.toStringAsFixed(1)} hrs'
+                '${overdue > 0 ? '  •  Overdue: $overdue' : ''}'),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _KV extends StatelessWidget {
-  final String k;
-  final String v;
-  const _KV(this.k, this.v, {super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          SizedBox(width: 140, child: Text(k, style: const TextStyle(fontWeight: FontWeight.w500))),
-          Expanded(child: Text(v)),
-        ],
       ),
     );
   }
@@ -208,8 +216,8 @@ class _OrderTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final code   = order.code;
     final title  = order.title;
-    final statusLabel = statusToString(order.status); // enum -> string
-    final prioLabel   = order.priority.name;          // low/normal/high/urgent
+    final statusLabel = statusToString(order.status);
+    final prioLabel   = order.priority.name;
     final schedD = order.scheduledDate == null
         ? ''
         : order.scheduledDate!.toIso8601String().split('T').first;

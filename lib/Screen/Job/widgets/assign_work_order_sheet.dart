@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../state/mechanic_store.dart'; // <-- store that fetches from staff
+import '../../../ui/crm_style.dart';
+
 
 class AssignWorkOrderResult {
   final String mechanicId;
@@ -87,8 +89,7 @@ class _AssignWorkOrderSheetState extends State<AssignWorkOrderSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('Assign Work Order',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
+                style: crmTitleStyle),
 
             // MECHANIC DROPDOWN
             if (mechStore.loading && mechanics.isEmpty)
@@ -109,7 +110,11 @@ class _AssignWorkOrderSheetState extends State<AssignWorkOrderSheet> {
               )
             else
               DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Mechanic'),
+                decoration: InputDecoration(
+                  labelText: 'Mechanic',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  isDense: true,
+                ),
                 value: _mechanicId,
                 items: mechanics
                     .map((m) => DropdownMenuItem(
@@ -127,6 +132,10 @@ class _AssignWorkOrderSheetState extends State<AssignWorkOrderSheet> {
               children: [
                 Expanded(
                   child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: const BorderSide(color: CrmColors.primary),
+                    ),
                     onPressed: _pickDate,
                     child: Text(_date == null
                         ? 'Pick Date'
@@ -136,6 +145,10 @@ class _AssignWorkOrderSheetState extends State<AssignWorkOrderSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: const BorderSide(color: CrmColors.primary),
+                    ),
                     onPressed: _pickTime,
                     child: Text(_time == null
                         ? 'Pick Time'
@@ -151,6 +164,12 @@ class _AssignWorkOrderSheetState extends State<AssignWorkOrderSheet> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: CrmColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
                 onPressed: canConfirm
                     ? () {
                   final dt = DateTime(
