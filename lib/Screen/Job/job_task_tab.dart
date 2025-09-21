@@ -1,9 +1,9 @@
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../state/work_order_store.dart';
 import '../../state/mechanic_store.dart';
 import '../../Models/work_order.dart';
-import 'widgets/assign_work_order_sheet.dart';
 import 'work_order_details_page.dart';
 import '../../Models/mechanic.dart';
 
@@ -14,10 +14,44 @@ class JobTaskTab extends StatefulWidget {
   State<JobTaskTab> createState() => _JobTaskTabState();
 }
 
+enum TimeRange { all, today, next7, thisWeek, thisMonth, customRange }
+
+/// Coerce various backend shapes into DateTime:
+/// - DateTime -> itself
+/// - int (epoch micros/millis/secs heuristic) -> DateTime
+/// - String (ISO-8601) -> DateTime.tryParse
+DateTime? _asDateTime(dynamic v) {
+  if (v == null) return null;
+  if (v is DateTime) return v;
+  if (v is String) {
+    final parsed = DateTime.tryParse(v);
+    if (parsed != null) return parsed;
+  }
+  if (v is int) {
+    final n = v;
+    if (n > 9_000_000_000_000_000) { // > ~285 years in micros: already micros
+      return DateTime.fromMicrosecondsSinceEpoch(n);
+    } else if (n > 9_000_000_000_000) { // > ~285 years in millis: treat as millis
+      return DateTime.fromMillisecondsSinceEpoch(n);
+    } else if (n > 9_000_000_000) { // > year 2286 in secs: unlikely but handle
+      return DateTime.fromMillisecondsSinceEpoch(n);
+    } else if (n > 1_000_000_000) { // epoch seconds (common)
+      return DateTime.fromMillisecondsSinceEpoch(n * 1000);
+    } else {
+      // very small ints aren’t valid epochs; ignore
+      return null;
+    }
+  }
+  return null;
+}
+
 class _JobTaskTabState extends State<JobTaskTab> {
   WorkOrderStatus? _filter; // null = all
   final TextEditingController _searchController = TextEditingController();
-  DateTime? _selectedDate;
+
+  // Time window
+  TimeRange _range = TimeRange.all;
+  DateTimeRange? _selectedRange; // used only when _range == customRange
 
   String _fmtDate(DateTime d) {
     final wd = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d.weekday - 1];
@@ -31,66 +65,75 @@ class _JobTaskTabState extends State<JobTaskTab> {
     return '$hh:$mm';
   }
 
-  /// Groups by calendar date (local), returns (dateKey -> sorted list)
-  Map<DateTime?, List<WorkOrder>> _groupByDate(List<WorkOrder> input) {
-    final map = <DateTime?, List<WorkOrder>>{};
-    for (final wo in input) {
-      final dt = wo.scheduledStart;
-      final key = dt == null ? null : DateTime(dt.year, dt.month, dt.day);
-      (map[key] ??= []).add(wo);
+  String _ymd(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  DateTime _atStartOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
+  DateTime _atEndOfDay(DateTime d) => DateTime(d.year, d.month, d.day, 23, 59, 59);
+
+  ({DateTime? start, DateTime? end}) _currentBounds() {
+    final now = DateTime.now();
+    switch (_range) {
+      case TimeRange.all:
+        return (start: null, end: null);
+      case TimeRange.today:
+        final s = _atStartOfDay(now);
+        return (start: s, end: _atEndOfDay(s));
+      case TimeRange.next7:
+        final s = _atStartOfDay(now);
+        final e = _atEndOfDay(s.add(const Duration(days: 6)));
+        return (start: s, end: e);
+      case TimeRange.thisWeek:
+        final weekday = now.weekday; // 1=Mon..7=Sun
+        final monday = _atStartOfDay(now.subtract(Duration(days: weekday - 1)));
+        final sunday = _atEndOfDay(monday.add(const Duration(days: 6)));
+        return (start: monday, end: sunday);
+      case TimeRange.thisMonth:
+        final first = DateTime(now.year, now.month, 1);
+        final last = DateTime(now.year, now.month + 1, 0);
+        return (start: _atStartOfDay(first), end: _atEndOfDay(last));
+      case TimeRange.customRange:
+        if (_selectedRange == null) return (start: null, end: null);
+        final s = _atStartOfDay(_selectedRange!.start);
+        final e = _atEndOfDay(_selectedRange!.end);
+        return (start: s, end: e);
     }
-    // sort each bucket by time
-    for (final e in map.entries) {
-      e.value.sort((a, b) {
-        final da = a.scheduledStart;
-        final db = b.scheduledStart;
-        if (da == null && db == null) return 0;
-        if (da == null) return 1; // nulls last inside a dated bucket (rare)
-        if (db == null) return -1;
-        return da.compareTo(db);
-      });
-    }
-    return map;
   }
 
-
-
-  // status + search filter
+  /// status + search + mechanic + time-window filter
   List<WorkOrder> _applyFilter(List<WorkOrder> items) {
     var result = items;
 
+    // status
     if (_filter != null) {
       result = result.where((wo) => wo.status == _filter).toList();
     }
 
+    // search (title | code | mechanic)
     final query = _searchController.text.trim().toLowerCase();
     if (query.isNotEmpty) {
       final mechStore = context.read<MechanicStore>();
-
       result = result.where((wo) {
         final mechanic = mechStore.byId(wo.assignedMechanicId);
         final mechName = mechanic?.name.toLowerCase() ?? "";
-
         return (wo.title.toLowerCase().contains(query)) ||
-            (wo.code.toLowerCase().contains(query)) ||
+            (wo.code.toLowerCase().contains(query))  ||
             (mechName.contains(query));
       }).toList();
     }
 
-    // 🔎 filter by selected date
-    if (_selectedDate != null) {
+    // time window (using coerced DateTime)
+    final bounds = _currentBounds();
+    if (bounds.start != null && bounds.end != null) {
       result = result.where((wo) {
-        if (wo.scheduledStart == null) return false;
-        final d = wo.scheduledStart!;
-        return d.year == _selectedDate!.year &&
-            d.month == _selectedDate!.month &&
-            d.day == _selectedDate!.day;
+        final dt = _asDateTime((wo as dynamic).scheduledStart);
+        if (dt == null) return false;
+        return !dt.isBefore(bounds.start!) && !dt.isAfter(bounds.end!);
       }).toList();
     }
 
     return result;
   }
-
 
   @override
   void initState() {
@@ -111,67 +154,121 @@ class _JobTaskTabState extends State<JobTaskTab> {
 
     return Column(
       children: [
-        // 🔎 Search bar
+        // Search + time window popup
         Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search by title, code, mechanic...',
+                  decoration: const InputDecoration(
+                    hintText: 'Search by title, code, mechanic…',
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     prefixIcon: Icon(Icons.search, size: 18),
                     prefixIconConstraints: BoxConstraints(minWidth: 36, minHeight: 36),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               SizedBox(
-                  width: 36, height: 36,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    iconSize: 28,
-                    icon: const Icon(Icons.date_range),
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate ?? DateTime.now(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setState(() => _selectedDate = picked);
-                      }
-                    }, // your existing date picker method
-                    tooltip: 'Filter date',
-                  ),
+                width: 36, height: 36,
+                child: PopupMenuButton<String>(
+                  tooltip: 'Time window',
+                  iconSize: 24,
+                  icon: const Icon(Icons.date_range),
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'all',      child: Text('All')),
+                    PopupMenuItem(value: 'today',    child: Text('Today')),
+                    PopupMenuItem(value: 'next7',    child: Text('Next 7 days')),
+                    PopupMenuItem(value: 'thisWeek', child: Text('This week')),
+                    PopupMenuItem(value: 'thisMonth',child: Text('This month')),
+                    PopupMenuItem(value: 'pick',     child: Text('Pick a range…')),
+                  ],
+                  onSelected: (v) async {
+                    switch (v) {
+                      case 'all':
+                        setState(() { _range = TimeRange.all; _selectedRange = null; });
+                        break;
+                      case 'today':
+                        setState(() { _range = TimeRange.today; _selectedRange = null; });
+                        break;
+                      case 'next7':
+                        setState(() { _range = TimeRange.next7; _selectedRange = null; });
+                        break;
+                      case 'thisWeek':
+                        setState(() { _range = TimeRange.thisWeek; _selectedRange = null; });
+                        break;
+                      case 'thisMonth':
+                        setState(() { _range = TimeRange.thisMonth; _selectedRange = null; });
+                        break;
+                      case 'pick':
+                        final now = DateTime.now();
+                        final initialStart = _selectedRange?.start ?? now;
+                        final initialEnd   = _selectedRange?.end   ?? now.add(const Duration(days: 6));
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                          initialDateRange: DateTimeRange(start: initialStart, end: initialEnd),
+                        );
+                        if (picked != null) {
+                          setState(() { _range = TimeRange.customRange; _selectedRange = picked; });
+                        }
+                        break;
+                    }
+                  },
+                ),
               ),
-              if (_selectedDate != null) ...[
+              if (_range == TimeRange.customRange && _selectedRange != null) ...[
                 const SizedBox(width: 4),
                 SizedBox(
                   width: 36, height: 36,
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    iconSize: 28,
+                    iconSize: 24,
                     icon: const Icon(Icons.clear),
-                    onPressed: () => setState(() => _selectedDate = null),
-                    tooltip: 'Clear date',
+                    onPressed: () => setState(() { _range = TimeRange.all; _selectedRange = null; }),
+                    tooltip: 'Clear range',
                   ),
                 ),
-              ]
+              ],
             ],
           ),
         ),
 
-
         _buildFilterBar(),
+
+        // Active range chip (clearable)
+        if (_range != TimeRange.all)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+            child: Wrap(
+              spacing: 6, runSpacing: 4,
+              children: [
+                InputChip(
+                  label: Text(
+                    _range == TimeRange.customRange && _selectedRange != null
+                        ? '${_ymd(_selectedRange!.start)} → ${_ymd(_selectedRange!.end)}'
+                        : ({
+                      TimeRange.today:    'Today',
+                      TimeRange.next7:    'Next 7 days',
+                      TimeRange.thisWeek: 'This week',
+                      TimeRange.thisMonth:'This month',
+                    }[_range] ?? 'All'),
+                  ),
+                  onDeleted: () => setState(() { _range = TimeRange.all; _selectedRange = null; }),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+          ),
+
+
 
         Expanded(
           child: RefreshIndicator(
@@ -185,8 +282,7 @@ class _JobTaskTabState extends State<JobTaskTab> {
               ],
             )
                 : _AgendaList(items: filtered, tileBuilder: (wo) => _WorkOrderTile(wo: wo)),
-
-    ),
+          ),
         ),
       ],
     );
@@ -194,7 +290,7 @@ class _JobTaskTabState extends State<JobTaskTab> {
 
   Widget _buildFilterBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -230,7 +326,6 @@ class _JobTaskTabState extends State<JobTaskTab> {
               active: _filter == WorkOrderStatus.completed,
               onTap: () => setState(() => _filter = WorkOrderStatus.completed),
             ),
-
           ],
         ),
       ),
@@ -267,15 +362,14 @@ class _AgendaList extends StatelessWidget {
       );
     }
 
-    // group by date
+    // group by date using coerced DateTime
     final buckets = <DateTime?, List<WorkOrder>>{};
     for (final wo in items) {
-      final dt = wo.scheduledStart;
+      final dt = _asDateTime((wo as dynamic).scheduledStart);
       final key = dt == null ? null : DateTime(dt.year, dt.month, dt.day);
       (buckets[key] ??= []).add(wo);
     }
 
-    // sort days ascending; null (no schedule) at the end
     final keys = buckets.keys.toList()
       ..sort((a, b) {
         if (a == null && b == null) return 0;
@@ -284,12 +378,11 @@ class _AgendaList extends StatelessWidget {
         return a.compareTo(b);
       });
 
-    // sort items inside each day by time
     for (final k in keys) {
       final list = buckets[k]!;
       list.sort((a, b) {
-        final da = a.scheduledStart;
-        final db = b.scheduledStart;
+        final da = _asDateTime((a as dynamic).scheduledStart);
+        final db = _asDateTime((b as dynamic).scheduledStart);
         if (da == null && db == null) return 0;
         if (da == null) return 1;
         if (db == null) return -1;
@@ -297,10 +390,8 @@ class _AgendaList extends StatelessWidget {
       });
     }
 
-    // flatten into a single ListView with section headers
     final children = <Widget>[];
     for (final k in keys) {
-      // header
       children.add(
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
@@ -317,16 +408,14 @@ class _AgendaList extends StatelessWidget {
         ),
       );
 
-      // items
       for (final wo in buckets[k]!) {
-        final t = wo.scheduledStart;
+        final t = _asDateTime((wo as dynamic).scheduledStart);
         children.add(
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // time column
                 SizedBox(
                   width: 64,
                   child: Text(
@@ -334,7 +423,6 @@ class _AgendaList extends StatelessWidget {
                     style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
                   ),
                 ),
-                // card
                 Expanded(child: tileBuilder(wo)),
               ],
             ),
@@ -344,14 +432,12 @@ class _AgendaList extends StatelessWidget {
       }
     }
 
-    // wrap in Refresh-friendly scroll
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: children,
     );
   }
 }
-
 
 class _WorkOrderTile extends StatelessWidget {
   const _WorkOrderTile({required this.wo});
@@ -377,14 +463,6 @@ class _WorkOrderTile extends StatelessWidget {
     }
   }
 
-  String _fmtTime(DateTime? dt) {
-    if (dt == null) return '—';
-    final hh = dt.hour.toString().padLeft(2, '0');
-    final mm = dt.minute.toString().padLeft(2, '0');
-    return '$hh:$mm';
-
-  }
-
   @override
   Widget build(BuildContext context) {
     final mechStore = context.watch<MechanicStore>();
@@ -397,44 +475,28 @@ class _WorkOrderTile extends StatelessWidget {
       child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min, //  keeps it tight
-          children: [
-            const Icon(Icons.arrow_forward_ios, size: 15)
-          ],
-        ),
-
+        trailing: const Icon(Icons.arrow_forward_ios, size: 15),
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => WorkOrderDetailsPage(workOrder: wo)),
           );
         },
-
-        //  Status dot on the LEFT
         leading: Container(
           width: 10, height: 10,
-          margin: const EdgeInsets.only(top: 6), // align with title baseline
+          margin: const EdgeInsets.only(top: 6),
           decoration: BoxDecoration(color: _statusColor(wo.status), shape: BoxShape.circle),
         ),
-
-        //  Title in the middle
         title: Text(
           wo.title.isNotEmpty ? wo.title : wo.code,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-
-        //  Schedule on the RIGHT (replaces status text)
-
-
-        // Subtitle without schedule (to save space)
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Code + Status on one compact row
               Wrap(
                 spacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -464,7 +526,6 @@ class _WorkOrderTile extends StatelessWidget {
     );
   }
 }
-
 
 class _FilterChip extends StatelessWidget {
   final String label;

@@ -160,29 +160,8 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
       padding: const EdgeInsets.all(12),
       children: [
         chips(),
-        const SizedBox(height: 12),
 
-        if (mechRows.isNotEmpty) ...[
-          const _SectionHeader('Active mechanics'),
-          const SizedBox(height: 8),
-          ...mechRows.map((r) => _WorkloadCard(
-            row: r,
-            // Pass current window to details page
-            onOpen: (ctx) => Navigator.push(
-              ctx,
-              MaterialPageRoute(
-                builder: (_) => JobWorkloadDetailPage(
-                  title: r.label,
-                  mechanicId: r.mechanicId,
-                  isUnassigned: false,
-                  windowStart: start,
-                  windowEnd: end,
-                  windowType: _sel.name,
-                ),
-              ),
-            ),
-          )).toList(),
-        ],
+
         if (unassignedCount > 0) ...[
           const SizedBox(height: 16),
           const _SectionHeader('Unassigned jobs'),
@@ -211,6 +190,29 @@ class _JobWorkloadTabState extends State<JobWorkloadTab> {
             ),
           ),
         ],
+
+        if (mechRows.isNotEmpty) ...[
+          const _SectionHeader('Active mechanics'),
+          const SizedBox(height: 8),
+          ...mechRows.map((r) => _WorkloadCard(
+            row: r,
+            // Pass current window to details page
+            onOpen: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(
+                builder: (_) => JobWorkloadDetailPage(
+                  title: r.label,
+                  mechanicId: r.mechanicId,
+                  isUnassigned: false,
+                  windowStart: start,
+                  windowEnd: end,
+                  windowType: _sel.name,
+                ),
+              ),
+            ),
+          )).toList(),
+        ],
+
       ],
     );
   }
