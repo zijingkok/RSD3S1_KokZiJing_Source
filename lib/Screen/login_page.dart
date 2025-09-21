@@ -212,24 +212,6 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 10),
 
-                          Row(
-                            children: [
-                              Checkbox(
-                                value: _rememberMe,
-                                onChanged: (v) =>
-                                    setState(() => _rememberMe = v ?? true),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Remember Me',
-                                style: TextStyle(
-                                  color: _ink,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: .2,
-                                ),
-                              ),
-                            ],
-                          ),
 
                           const SizedBox(height: 8),
                           SizedBox(
